@@ -36,6 +36,14 @@ import {
   ChevronRight,
   Code2,
   Database,
+  Search,
+  Book,
+  Globe,
+  Clock,
+  FileText,
+  FileCode,
+  Folder,
+  Trash2,
   Terminal,
   Activity,
   History,
@@ -62,8 +70,9 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { getWorkflow, runWorkflow, updateWorkflow } from "@/lib/api";
-import type { WorkflowGraph } from "@/lib/types";
+import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChat, listTools } from "@/lib/api";
+import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace } from "@/lib/types";
+import { v4 as uuidv4 } from 'uuid';
 
 // --- Node Styles ---
 
@@ -132,11 +141,17 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [viewport, setViewport] = useState({ x: 0, y: 0, zoom: 0.8 });
+  const [app, setApp] = useState<AppItem | null>(null);
+  const [availableTools, setAvailableTools] = useState<ToolCategory[]>([]);
 
+  // Workflow State
+  const [selectedId, setSelectedId] = useState<string>("");
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+
+  // Agent State
+  const [instructions, setInstructions] = useState("");
+  const [enabledTools, setEnabledTools] = useState<string[]>([]);
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) || null, [nodes, selectedId]);
 
@@ -145,23 +160,40 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [running, setRunning] = useState(false);
 
   const [activeTab, setActiveTab] = useState("orchestrate");
+  const [previewSessionId, setPreviewSessionId] = useState("");
+  const [toolTraces, setToolTraces] = useState<AgentToolTrace[]>([]);
 
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
-        const data = await getWorkflow(appId);
-        const g = (data.graph || {}) as WorkflowGraph;
+        const [appData, wfData, toolsData] = await Promise.all([
+          getApp(appId),
+          getWorkflow(appId),
+          listTools()
+        ]);
 
-        const loadedNodes = ((g.nodes || []) as Node[]).map((n) => ({
-          ...n,
-          data: { ...n.data }
-        }));
-        const loadedEdges = (g.edges || []) as Edge[];
+        setApp(appData);
+        setAvailableTools(toolsData.categories);
 
-        setNodes(loadedNodes);
-        setEdges(loadedEdges);
-        if (loadedNodes.length > 0) setSelectedId(loadedNodes[0].id);
+        if (appData.mode === "agent") {
+          const g = (wfData.graph || {}) as any;
+          setInstructions(g.instructions || "");
+          setEnabledTools(g.enabled_tools || []);
+        } else {
+          const g = (wfData.graph || {}) as WorkflowGraph;
+          const loadedNodes = ((g.nodes || []) as Node[]).map((n) => ({
+            ...n,
+            data: { ...n.data }
+          }));
+          const loadedEdges = (g.edges || []) as Edge[];
+          setNodes(loadedNodes);
+          setEdges(loadedEdges);
+          if (loadedNodes.length > 0) setSelectedId(loadedNodes[0].id);
+        }
+
+        // Initialize preview session
+        setPreviewSessionId(`preview_${appId}_${uuidv4().slice(0, 8)}`);
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
       } finally {
@@ -202,7 +234,10 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   async function onSave() {
     setSaving(true);
     try {
-      await updateWorkflow(appId, { graph: { nodes, edges } });
+      const graphPayload = app?.mode === "agent"
+        ? { instructions, enabled_tools: enabledTools }
+        : { nodes, edges };
+      await updateWorkflow(appId, { graph: graphPayload });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -212,10 +247,17 @@ export default function OrchestratePage({ appId }: { appId: number }) {
 
   async function onRun() {
     setRunning(true);
-    setRunOutput("");
     try {
-      const resp = await runWorkflow({ input: runInput, context: { app_id: appId } });
-      setRunOutput(resp.output);
+      if (app?.mode === "agent") {
+        const resp = await appChat(appId, { input: runInput, session_id: previewSessionId });
+        setRunOutput(resp.content);
+        setToolTraces(resp.tool_traces || []);
+      } else {
+        setRunOutput("");
+        setToolTraces([]);
+        const resp = await runWorkflow({ input: runInput, context: { app_id: appId } });
+        setRunOutput(resp.output);
+      }
     } catch (e) {
       setRunOutput("Error: " + (e instanceof Error ? e.message : String(e)));
     } finally {
@@ -235,6 +277,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     </div>
   );
 
+  const isAgent = app?.mode === "agent";
+
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       {/* Compact Header */}
@@ -247,7 +291,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           <div className="flex flex-col">
             <Breadcrumbs size="sm" underline="hover" classNames={{ list: "gap-1" }}>
               <BreadcrumbItem classNames={{ item: "text-[11px]" }}>Apps</BreadcrumbItem>
-              <BreadcrumbItem classNames={{ item: "text-[11px] font-bold text-foreground" }}>App #{appId}</BreadcrumbItem>
+              <BreadcrumbItem classNames={{ item: "text-[11px] font-bold text-foreground" }}>
+                {isAgent ? "Agent" : "Workflow"} #{appId}
+              </BreadcrumbItem>
             </Breadcrumbs>
           </div>
 
@@ -304,155 +350,293 @@ export default function OrchestratePage({ appId }: { appId: number }) {
 
       <div className="flex-1 overflow-hidden">
         {activeTab === "orchestrate" ? (
-          <div className="flex h-full">
-            {/* Canvas Area */}
-            <div className="flex-1 relative bg-[#f8fafc]">
-              <ReactFlow
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                nodeTypes={nodeTypes}
-                onNodeClick={(_, node) => setSelectedId(node.id)}
-                fitView
-                className="bg-dot-pattern"
-                snapToGrid
-                snapGrid={[20, 20]}
-                defaultEdgeOptions={{ type: 'smoothstep', animated: true, style: { strokeWidth: 1.5 } }}
-              >
-                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
-                <Controls className="bg-white border-divider shadow-md !left-4 !bottom-4 scale-75" />
-              </ReactFlow>
+          isAgent ? (
+            /* Agent Orchestration View */
+            <div className="flex h-full bg-[#f8fafc]">
+              <div className="w-[450px] flex flex-col border-r border-divider bg-white shadow-sm overflow-hidden text-xs">
+                <div className="p-4 border-b border-divider bg-content1/50 flex items-center justify-between">
+                  <span className="font-black uppercase tracking-widest text-[10px]">智能体配置</span>
+                </div>
+                <ScrollShadow className="flex-1 p-5 gap-6 flex flex-col">
+                  <section className="flex flex-col gap-3">
+                    <header className="flex items-center justify-between">
+                      <label className="text-[10px] font-black uppercase tracking-wide flex items-center gap-1.5"><Terminal size={12} /> 系统指令</label>
+                      <Chip size="sm" variant="flat" color="primary" className="h-4 text-[8px] font-black">GPT-4O</Chip>
+                    </header>
+                    <Textarea
+                      variant="bordered"
+                      placeholder="你是一个专业的 AI 助手..."
+                      minRows={12}
+                      value={instructions}
+                      onValueChange={setInstructions}
+                      classNames={{ input: "text-[11px] leading-relaxed font-mono", inputWrapper: "p-2" }}
+                    />
+                    <p className="text-[9px] text-foreground/50 leading-tight">编写详细的指令来定义智能体的角色、目标和行为准则。</p>
+                  </section>
 
-              {/* Compact Floating Toolbox */}
-              <div className="absolute left-4 top-4 flex flex-col gap-2">
-                <Card className="bg-white/80 backdrop-blur border-divider p-1 shadow-lg">
-                  <div className="flex flex-col gap-1">
-                    {[
-                      { type: 'start', icon: Play, label: '开始', color: 'success' },
-                      { type: 'llm', icon: Box, label: 'LLM 节点', color: 'primary' },
-                      { type: 'answer', icon: MessageSquare, label: '回答节点', color: 'warning' },
-                    ].map((item) => (
-                      <Tooltip key={item.type} content={item.label} placement="right">
-                        <Button
-                          isIconOnly
-                          size="sm"
-                          variant="flat"
-                          color={item.color as any}
-                          className="h-8 w-8 bg-white border-divider transition-all active:scale-95"
-                          onPress={() => addNode(item.type)}
-                        >
-                          <item.icon size={16} />
-                        </Button>
-                      </Tooltip>
+                  <Divider className="opacity-50" />
+
+                  <section className="flex flex-col gap-6">
+                    {availableTools.map((cat) => (
+                      <div key={cat.category} className="flex flex-col gap-3">
+                        <header className="flex items-center gap-2 px-1">
+                          <div className="h-1 w-1 rounded-full bg-primary" />
+                          <span className="text-[10px] font-black uppercase tracking-widest text-foreground/40">{cat.category}</span>
+                        </header>
+                        <div className="grid grid-cols-1 gap-2">
+                          {cat.tools.map((tool) => {
+                            const isEnabled = enabledTools.includes(tool.name);
+                            return (
+                              <Card
+                                key={tool.name}
+                                isPressable
+                                onPress={() => setEnabledTools(prev => isEnabled ? prev.filter(t => t !== tool.name) : [...prev, tool.name])}
+                                className={`border transition-all duration-300 rounded-xl ${isEnabled ? 'border-primary bg-primary/5 ring-1 ring-primary/20' : 'border-divider hover:border-primary/40'}`}
+                              >
+                                <CardBody className="p-3 flex flex-row items-center gap-3">
+                                  <div className={`h-8 w-8 rounded-lg flex items-center justify-center ${isEnabled ? 'bg-primary text-white shadow-sm' : 'bg-content2 text-foreground/40'}`}>
+                                    {tool.name === 'calc' && <Terminal size={14} />}
+                                    {tool.name === 'google_search' && <Search size={14} />}
+                                    {tool.name === 'wikipedia' && <Book size={14} />}
+                                    {tool.name === 'web_page_reader' && <Globe size={14} />}
+                                    {tool.name === 'current_datetime' && <Clock size={14} />}
+                                    {tool.name === 'python_repl' && <FileCode size={14} />}
+                                    {tool.name === 'read_file' && <FileText size={14} />}
+                                    {tool.name === 'write_file' && <FileText size={14} />}
+                                    {tool.name === 'list_directory' && <Folder size={14} />}
+                                    {tool.name === 'file_delete' && <Trash2 size={14} />}
+                                    {!['calc', 'google_search', 'wikipedia', 'web_page_reader', 'current_datetime', 'python_repl', 'read_file', 'write_file', 'list_directory', 'file_delete'].includes(tool.name) && <Plus size={14} />}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="font-bold text-[11px] flex items-center gap-2">
+                                      {tool.name}
+                                      {isEnabled && <Chip size="sm" color="primary" variant="solid" className="h-3 text-[7px] font-black px-1 rounded-sm">ENABLED</Chip>}
+                                    </div>
+                                    <div className="text-[9px] text-foreground/50 line-clamp-2 mt-0.5" title={tool.description}>{tool.description}</div>
+                                  </div>
+                                </CardBody>
+                              </Card>
+                            );
+                          })}
+                        </div>
+                      </div>
                     ))}
-                  </div>
-                </Card>
+                  </section>
+                </ScrollShadow>
               </div>
-            </div>
 
-            {/* Compact Config Panel */}
-            <div className="w-[300px] border-l border-divider bg-background flex flex-col overflow-hidden shadow-xl z-10 text-xs">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-divider bg-content1/50">
-                <div className="flex flex-col">
-                  <div className="text-[9px] font-bold text-foreground uppercase tracking-widest leading-none mb-1">Config</div>
-                  <div className="flex items-center gap-1.5">
-                    {selectedNode ? (
-                      <Chip size="sm" variant="dot" color="primary" classNames={{ content: "text-[10px] font-bold" }}>{selectedNode.type?.toUpperCase()}</Chip>
+              {/* Live Preview for Agent */}
+              <div className="flex-1 flex flex-col bg-content2/5 p-6">
+                <div className="max-w-4xl w-full h-full mx-auto flex flex-col bg-white border border-divider rounded-2xl shadow-xl overflow-hidden">
+                  <div className="p-4 border-b border-divider bg-content1/30 flex items-center gap-2">
+                    <Activity size={14} className="text-primary" />
+                    <span className="text-[11px] font-bold">实时测试预览</span>
+                  </div>
+                  <div className="flex-1 overflow-auto p-6 flex flex-col gap-6">
+                    {runOutput ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <Avatar icon={<Terminal size={10} />} classNames={{ base: "bg-primary text-white h-5 w-5" }} />
+                          <span className="text-[9px] font-bold text-foreground uppercase tracking-widest">Assistant</span>
+                          <Divider className="flex-1 ml-2" />
+                        </div>
+                        <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-foreground">
+                          {runOutput}
+                        </div>
+                        {toolTraces.length > 0 && (
+                          <div className="flex flex-col gap-2 mt-2">
+                            {toolTraces.map((trace, idx) => (
+                              <div key={trace.id || idx} className="text-[10px] bg-content2/50 border border-divider rounded-lg p-2 font-mono">
+                                <div className="flex items-center gap-2 text-primary font-bold mb-1">
+                                  <Terminal size={10} /> {trace.name}
+                                </div>
+                                <div className="text-foreground/60 mb-1">Args: {JSON.stringify(trace.args)}</div>
+                                <div className="text-foreground">Result: {trace.result}</div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <span className="text-foreground italic text-[11px]">No Selection</span>
+                      <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">
+                        <MessageSquare size={48} strokeWidth={1} />
+                        <div className="text-center max-w-[200px]">
+                          <div className="text-[11px] font-bold mb-1 uppercase tracking-wide">开始对话</div>
+                          <p className="text-[10px] leading-tight italic">修改指令或工具后，在下方发送消息进行实时测试。</p>
+                        </div>
+                      </div>
                     )}
+                  </div>
+                  <div className="p-4 border-t border-divider bg-white">
+                    <Input
+                      placeholder="向您的智能体发送指令..."
+                      value={runInput}
+                      onValueChange={setRunInput}
+                      onKeyDown={(e) => e.key === "Enter" && onRun()}
+                      startContent={<ChevronRight size={14} className="text-foreground/40" />}
+                      endContent={
+                        <Button isIconOnly size="sm" color="primary" variant="solid" className="h-7 w-7 rounded-lg" isLoading={running} onPress={onRun}>
+                          <Play size={12} fill="white" />
+                        </Button>
+                      }
+                      classNames={{ inputWrapper: "h-10 bg-content2/10 border-divider", input: "text-[11px]" }}
+                    />
                   </div>
                 </div>
-                {selectedNode && (
-                  <Dropdown>
-                    <DropdownTrigger>
-                      <Button isIconOnly variant="light" size="sm" className="h-7 w-7"><MoreVertical size={14} /></Button>
-                    </DropdownTrigger>
-                    <DropdownMenu aria-label="Node Actions" className="text-xs">
-                      <DropdownItem key="copy">复制节点</DropdownItem>
-                      <DropdownItem key="delete" color="danger" onPress={() => setNodes(nodes.filter(n => n.id !== selectedId))}>删除节点</DropdownItem>
-                    </DropdownMenu>
-                  </Dropdown>
-                )}
+              </div>
+            </div>
+          ) : (
+            /* Workflow Graph View */
+            <div className="flex h-full">
+              {/* Canvas Area */}
+              <div className="flex-1 relative bg-[#f8fafc]">
+                <ReactFlow
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  nodeTypes={nodeTypes}
+                  onNodeClick={(_, node) => setSelectedId(node.id)}
+                  fitView
+                  className="bg-dot-pattern"
+                  snapToGrid
+                  snapGrid={[20, 20]}
+                  defaultEdgeOptions={{ type: 'smoothstep', animated: true, style: { strokeWidth: 1.5 } }}
+                >
+                  <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
+                  <Controls className="bg-white border-divider shadow-md !left-4 !bottom-4 scale-75" />
+                </ReactFlow>
+
+                {/* Compact Floating Toolbox */}
+                <div className="absolute left-4 top-4 flex flex-col gap-2">
+                  <Card className="bg-white/80 backdrop-blur border-divider p-1 shadow-lg">
+                    <div className="flex flex-col gap-1">
+                      {[
+                        { type: 'start', icon: Play, label: '开始', color: 'success' },
+                        { type: 'llm', icon: Box, label: 'LLM 节点', color: 'primary' },
+                        { type: 'answer', icon: MessageSquare, label: '回答节点', color: 'warning' },
+                      ].map((item) => (
+                        <Tooltip key={item.type} content={item.label} placement="right">
+                          <Button
+                            isIconOnly
+                            size="sm"
+                            variant="flat"
+                            color={item.color as any}
+                            className="h-8 w-8 bg-white border-divider transition-all active:scale-95"
+                            onPress={() => addNode(item.type)}
+                          >
+                            <item.icon size={16} />
+                          </Button>
+                        </Tooltip>
+                      ))}
+                    </div>
+                  </Card>
+                </div>
               </div>
 
-              <ScrollShadow className="flex-1 p-4">
-                {selectedNode ? (
-                  <div className="flex flex-col gap-5">
-                    <section>
-                      <div className="text-[10px] font-bold text-foreground mb-2 px-1 flex items-center gap-1.5 uppercase tracking-wide">
-                        <Settings size={10} />
-                        基本设置
-                      </div>
-                      <Input
-                        label="节点名称"
-                        labelPlacement="outside"
-                        placeholder="例如: 基础回答"
-                        variant="bordered"
-                        size="sm"
-                        value={selectedNode.data?.label || ""}
-                        onValueChange={(v) => updateSelectedNode({ label: v })}
-                        classNames={{ inputWrapper: "h-9", label: "text-[10px]", input: "text-[11px]" }}
-                      />
-                    </section>
-
-                    {selectedNode.type === 'llm' && (
-                      <section className="flex flex-col gap-3">
-                        <div className="flex items-center justify-between px-1">
-                          <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide">
-                            <Terminal size={10} />
-                            PROMPT
-                          </div>
-                          <Chip size="sm" variant="flat" color="primary" className="h-4 text-[8px] font-bold">GPT-4O</Chip>
-                        </div>
-
-                        <div className="relative">
-                          <Textarea
-                            variant="bordered"
-                            minRows={10}
-                            placeholder="在此输入指令..."
-                            value={selectedNode.data?.prompt || ""}
-                            onValueChange={(v) => updateSelectedNode({ prompt: v })}
-                            classNames={{ input: "font-mono text-[11px] leading-tight", innerWrapper: "p-1" }}
-                          />
-                        </div>
-
-                        <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
-                          <div className="flex gap-2">
-                            <div className="text-[10px] text-foreground-600 leading-tight">
-                              提示：使用 <kbd className="bg-primary/10 text-primary font-bold px-1 rounded">{"{{input}}"}</kbd> 引用输入。
-                            </div>
-                          </div>
-                        </div>
-                      </section>
-                    )}
-
-                    {selectedNode.type === 'start' && (
-                      <div className="py-8 flex flex-col items-center gap-3 text-center">
-                        <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center text-success">
-                          <Play size={20} />
-                        </div>
-                        <div>
-                          <div className="text-[11px] font-bold">起点节点</div>
-                          <p className="text-[10px] text-foreground mt-1 max-w-[160px] leading-snug">初始化输入与环境。</p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground py-10 px-6 text-center">
-                    <Box size={40} className="opacity-10" />
-                    <div>
-                      <div className="text-[11px] font-bold text-foreground-500 mb-1 leading-none uppercase tracking-wide">未选中节点</div>
-                      <p className="text-[10px] leading-relaxed">点击画布节点进行编辑。</p>
+              {/* Compact Config Panel */}
+              <div className="w-[300px] border-l border-divider bg-background flex flex-col overflow-hidden shadow-xl z-10 text-xs">
+                <div className="flex items-center justify-between px-4 py-3 border-b border-divider bg-content1/50">
+                  <div className="flex flex-col">
+                    <div className="text-[9px] font-bold text-foreground uppercase tracking-widest leading-none mb-1">Config</div>
+                    <div className="flex items-center gap-1.5">
+                      {selectedNode ? (
+                        <Chip size="sm" variant="dot" color="primary" classNames={{ content: "text-[10px] font-bold" }}>{selectedNode.type?.toUpperCase()}</Chip>
+                      ) : (
+                        <span className="text-foreground italic text-[11px]">No Selection</span>
+                      )}
                     </div>
                   </div>
-                )}
-              </ScrollShadow>
+                  {selectedNode && (
+                    <Dropdown>
+                      <DropdownTrigger>
+                        <Button isIconOnly variant="light" size="sm" className="h-7 w-7"><MoreVertical size={14} /></Button>
+                      </DropdownTrigger>
+                      <DropdownMenu aria-label="Node Actions" className="text-xs">
+                        <DropdownItem key="copy">复制节点</DropdownItem>
+                        <DropdownItem key="delete" color="danger" onPress={() => setNodes(nodes.filter(n => n.id !== selectedId))}>删除节点</DropdownItem>
+                      </DropdownMenu>
+                    </Dropdown>
+                  )}
+                </div>
+
+                <ScrollShadow className="flex-1 p-4">
+                  {selectedNode ? (
+                    <div className="flex flex-col gap-5">
+                      <section>
+                        <div className="text-[10px] font-bold text-foreground mb-2 px-1 flex items-center gap-1.5 uppercase tracking-wide">
+                          <Settings size={10} />
+                          基本设置
+                        </div>
+                        <Input
+                          label="节点名称"
+                          labelPlacement="outside"
+                          placeholder="例如: 基础回答"
+                          variant="bordered"
+                          size="sm"
+                          value={selectedNode.data?.label || ""}
+                          onValueChange={(v) => updateSelectedNode({ label: v })}
+                          classNames={{ inputWrapper: "h-9", label: "text-[10px]", input: "text-[11px]" }}
+                        />
+                      </section>
+
+                      {selectedNode.type === 'llm' && (
+                        <section className="flex flex-col gap-3">
+                          <div className="flex items-center justify-between px-1">
+                            <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide">
+                              <Terminal size={10} />
+                              PROMPT
+                            </div>
+                            <Chip size="sm" variant="flat" color="primary" className="h-4 text-[8px] font-bold">GPT-4O</Chip>
+                          </div>
+
+                          <div className="relative">
+                            <Textarea
+                              variant="bordered"
+                              minRows={10}
+                              placeholder="在此输入指令..."
+                              value={selectedNode.data?.prompt || ""}
+                              onValueChange={(v) => updateSelectedNode({ prompt: v })}
+                              classNames={{ input: "font-mono text-[11px] leading-tight", innerWrapper: "p-1" }}
+                            />
+                          </div>
+
+                          <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                            <div className="flex gap-2">
+                              <div className="text-[10px] text-foreground-600 leading-tight">
+                                提示：使用 <kbd className="bg-primary/10 text-primary font-bold px-1 rounded">{"{{input}}"}</kbd> 引用输入。
+                              </div>
+                            </div>
+                          </div>
+                        </section>
+                      )}
+
+                      {selectedNode.type === 'start' && (
+                        <div className="py-8 flex flex-col items-center gap-3 text-center">
+                          <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center text-success">
+                            <Play size={20} />
+                          </div>
+                          <div>
+                            <div className="text-[11px] font-bold">起点节点</div>
+                            <p className="text-[10px] text-foreground mt-1 max-w-[160px] leading-snug">初始化输入与环境。</p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground py-10 px-6 text-center">
+                      <Box size={40} className="opacity-10" />
+                      <div>
+                        <div className="text-[11px] font-bold text-foreground-500 mb-1 leading-none uppercase tracking-wide">未选中节点</div>
+                        <p className="text-[10px] leading-relaxed">点击画布节点进行编辑。</p>
+                      </div>
+                    </div>
+                  )}
+                </ScrollShadow>
+              </div>
             </div>
-          </div>
+          )
         ) : activeTab === "preview" ? (
           <div className="flex h-full items-center justify-center bg-content2/5 p-6">
             <Card className="max-w-4xl w-full h-full shadow-xl border-divider bg-background overflow-hidden relative rounded-2xl">

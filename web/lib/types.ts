@@ -93,3 +93,13 @@ export type WorkflowDefResponse = {
 export type WorkflowDefUpdateRequest = {
   graph: WorkflowGraph;
 };
+
+export type ToolItem = {
+  name: string;
+  description: string;
+};
+
+export type ToolCategory = {
+  category: string;
+  tools: ToolItem[];
+};

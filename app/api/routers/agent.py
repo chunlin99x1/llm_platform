@@ -38,9 +38,18 @@ def _lc_messages_from_db(db_messages: list[AgentMessage]) -> list[BaseMessage]:
 @router.get("/tools")
 async def list_tools():
     return {
-        "tools": [
-            {"name": t.name, "description": getattr(t, "description", "") or (t.__doc__ or "")}
-            for t in BUILTIN_TOOLS.values()
+        "categories": [
+            {
+                "category": cat_name,
+                "tools": [
+                    {
+                        "name": tool_name,
+                        "description": getattr(t, "description", "") or (t.__doc__ or "").strip()
+                    }
+                    for tool_name, t in cat_tools.items()
+                ]
+            }
+            for cat_name, cat_tools in BUILTIN_TOOLS.items()
         ]
     }
 

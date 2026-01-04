@@ -12,7 +12,8 @@ import type {
   WorkflowDefResponse,
   WorkflowDefUpdateRequest,
   WorkflowRunRequest,
-  WorkflowRunResponse
+  WorkflowRunResponse,
+  ToolCategory
 } from "./types";
 
 const DEFAULT_BASE_URL = "http://localhost:8000";
@@ -90,4 +91,27 @@ export async function updateWorkflow(appId: number, req: WorkflowDefUpdateReques
   });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
   return (await res.json()) as WorkflowDefResponse;
+}
+
+export async function getApp(appId: number): Promise<AppItem> {
+  const res = await fetch(`${apiBaseUrl()}/apps/${appId}`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return (await res.json()) as AppItem;
+}
+
+export async function appChat(appId: number, payload: AgentChatRequest): Promise<AgentChatResponse> {
+  const res = await fetch(`${apiBaseUrl()}/apps/${appId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return (await res.json()) as AgentChatResponse;
+}
+
+export async function listTools(): Promise<{ categories: ToolCategory[] }> {
+  const res = await fetch(`${apiBaseUrl()}/agents/tools`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return await res.json();
 }
