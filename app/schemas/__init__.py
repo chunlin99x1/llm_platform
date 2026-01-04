@@ -53,6 +53,8 @@ class AgentSessionResponse(BaseModel):
 class AgentChatRequest(BaseModel):
     session_id: Optional[str] = None
     input: str
+    instructions: Optional[str] = None
+    enabled_tools: Optional[List[str]] = None
 
 
 class AgentToolTrace(BaseModel):

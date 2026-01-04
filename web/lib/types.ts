@@ -57,6 +57,8 @@ export type AgentToolTrace = {
 export type AgentChatRequest = {
   session_id?: string;
   input: string;
+  instructions?: string;
+  enabled_tools?: string[];
 };
 
 export type AgentChatResponse = {

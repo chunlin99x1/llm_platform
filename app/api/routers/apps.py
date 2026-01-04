@@ -114,8 +114,8 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
     if not wf or not wf.graph:
         raise HTTPException(status_code=404, detail="应用编排定义不存在")
 
-    instructions = wf.graph.get("instructions", "")
-    enabled_tools = wf.graph.get("enabled_tools", [])
+    instructions = payload.instructions if payload.instructions is not None else wf.graph.get("instructions", "")
+    enabled_tools = payload.enabled_tools if payload.enabled_tools is not None else wf.graph.get("enabled_tools", [])
 
     # 加载历史记录 (基于 session_id)
     session_id = payload.session_id or "preview_default"
@@ -127,8 +127,11 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
         if m.role == "user":
             history.append(HumanMessage(content=m.content))
         elif m.role == "assistant":
-            history.append(AIMessage(content=m.content))
-        # Note: ChatMessage model is simple, doesn't store tool/system role specifically for now
+            history.append(AIMessage(content=m.content, tool_calls=m.tool_calls or []))
+        elif m.role == "tool":
+            history.append(ToolMessage(content=m.content, tool_call_id=m.tool_call_id or "", name=m.name))
+        elif m.role == "system":
+            history.append(SystemMessage(content=m.content))
 
     user_msg = HumanMessage(content=payload.input)
     

@@ -25,6 +25,8 @@ import {
   DropdownTrigger,
   DropdownMenu,
   DropdownItem,
+  Accordion,
+  AccordionItem,
 } from "@heroui/react";
 import {
   Play,
@@ -251,7 +253,12 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     setToolTraces([]);
     try {
       if (app?.mode === "agent") {
-        await appChatStream(appId, { input: runInput, session_id: previewSessionId }, (event) => {
+        await appChatStream(appId, {
+          input: runInput,
+          session_id: previewSessionId,
+          instructions: instructions,
+          enabled_tools: enabledTools
+        }, (event) => {
           if (event.type === "text") {
             setRunOutput((prev) => prev + event.content);
           } else if (event.type === "trace") {
@@ -452,16 +459,46 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                           {runOutput}
                         </div>
                         {toolTraces.length > 0 && (
-                          <div className="flex flex-col gap-2 mt-2">
-                            {toolTraces.map((trace, idx) => (
-                              <div key={trace.id || idx} className="text-[10px] bg-content2/50 border border-divider rounded-lg p-2 font-mono">
-                                <div className="flex items-center gap-2 text-primary font-bold mb-1">
-                                  <Terminal size={10} /> {trace.name}
-                                </div>
-                                <div className="text-foreground/60 mb-1">Args: {JSON.stringify(trace.args)}</div>
-                                <div className="text-foreground">Result: {trace.result}</div>
-                              </div>
-                            ))}
+                          <div className="mt-2">
+                            <Accordion
+                              variant="splitted"
+                              className="px-0"
+                              itemClasses={{
+                                base: "group-[.is-splitted]:bg-content2/30 group-[.is-splitted]:shadow-none border border-divider !rounded-xl mb-2",
+                                title: "text-[10px] font-bold text-primary py-2",
+                                trigger: "px-3 py-0 h-8",
+                                content: "text-[10px] pb-3 px-3 pt-0 text-foreground/80 font-mono",
+                                indicator: "text-foreground/40",
+                              }}
+                            >
+                              {toolTraces.map((trace, idx) => (
+                                <AccordionItem
+                                  key={trace.id || idx}
+                                  aria-label={trace.name || "Tool"}
+                                  title={
+                                    <div className="flex items-center gap-2">
+                                      <Activity size={10} className="text-primary/60" />
+                                      <span>使用工具: {trace.name}</span>
+                                      {trace.result === "执行中..." && (
+                                        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                                      )}
+                                    </div>
+                                  }
+                                >
+                                  <div className="flex flex-col gap-1.5 bg-black/5 p-2 rounded-lg border border-black/5">
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] uppercase text-foreground/40 font-bold mb-0.5">Arguments</span>
+                                      <code className="text-[10px] break-all">{JSON.stringify(trace.args, null, 2)}</code>
+                                    </div>
+                                    <Divider className="opacity-40" />
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] uppercase text-foreground/40 font-bold mb-0.5">Result</span>
+                                      <div className="text-[10px] break-words whitespace-pre-wrap">{trace.result}</div>
+                                    </div>
+                                  </div>
+                                </AccordionItem>
+                              ))}
+                            </Accordion>
                           </div>
                         )}
                       </div>
@@ -697,6 +734,49 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                         <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-foreground-800">
                           {runOutput}
                         </div>
+                        {toolTraces.length > 0 && (
+                          <div className="mt-2">
+                            <Accordion
+                              variant="splitted"
+                              className="px-0"
+                              itemClasses={{
+                                base: "group-[.is-splitted]:bg-content2/30 group-[.is-splitted]:shadow-none border border-divider !rounded-xl mb-2",
+                                title: "text-[10px] font-bold text-primary py-2",
+                                trigger: "px-3 py-0 h-8",
+                                content: "text-[10px] pb-3 px-3 pt-0 text-foreground/80 font-mono",
+                                indicator: "text-foreground/40",
+                              }}
+                            >
+                              {toolTraces.map((trace, idx) => (
+                                <AccordionItem
+                                  key={trace.id || idx}
+                                  aria-label={trace.name || "Tool"}
+                                  title={
+                                    <div className="flex items-center gap-2">
+                                      <Activity size={10} className="text-primary/60" />
+                                      <span>使用工具: {trace.name}</span>
+                                      {trace.result === "执行中..." && (
+                                        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                                      )}
+                                    </div>
+                                  }
+                                >
+                                  <div className="flex flex-col gap-1.5 bg-black/5 p-2 rounded-lg border border-black/5">
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] uppercase text-foreground/40 font-bold mb-0.5">Arguments</span>
+                                      <code className="text-[10px] break-all">{JSON.stringify(trace.args, null, 2)}</code>
+                                    </div>
+                                    <Divider className="opacity-40" />
+                                    <div className="flex flex-col">
+                                      <span className="text-[9px] uppercase text-foreground/40 font-bold mb-0.5">Result</span>
+                                      <div className="text-[10px] break-words whitespace-pre-wrap">{trace.result}</div>
+                                    </div>
+                                  </div>
+                                </AccordionItem>
+                              ))}
+                            </Accordion>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">

@@ -336,6 +336,14 @@ async def agent_stream(
 
         convo.append(ai_msg)
 
+        # 推送完整的 AI 消息包（用于持久化）
+        yield {
+            "type": "message",
+            "role": "assistant",
+            "content": ai_msg.content if isinstance(ai_msg.content, str) else str(ai_msg.content),
+            "tool_calls": getattr(ai_msg, "tool_calls", [])
+        }
+
         # 2. 检查工具调用
         tool_calls = getattr(ai_msg, "tool_calls", None) or []
         if not tool_calls:
@@ -364,6 +372,16 @@ async def agent_stream(
                     result = f"工具执行失败：{e}"
 
             yield {"type": "trace_result", "id": call_id, "result": result}
+            
+            # 推送完整的工具回答消息包（用于持久化）
+            yield {
+                "type": "message", 
+                "role": "tool", 
+                "content": result, 
+                "tool_call_id": call_id, 
+                "name": name
+            }
+
             convo.append(ToolMessage(content=result, tool_call_id=call_id, name=name))
 
     yield {"type": "error", "content": "已达到工具调用迭代上限"}
