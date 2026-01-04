@@ -42,6 +42,14 @@ pnpm dev
 
 - `POST /chat`：简单对话，入参 `{"messages": [{"role":"user","content":"hi"}]}`。
 - `POST /workflow/run`：示例工作流（Start -> LLM -> End），入参 `{"input":"...","context":{}}`。
+- `POST /agents`：创建智能体（system prompt + 启用工具）。
+- `GET /agents`：智能体列表。
+- `POST /agents/{agent_id}/sessions`：创建会话。
+- `POST /agents/{agent_id}/chat`：智能体对话（支持工具调用）。
+- `POST /apps`：创建应用（默认带一个工作流草稿）。
+- `GET /apps`：应用列表。
+- `GET /apps/{app_id}/workflow`：获取编排图。
+- `PUT /apps/{app_id}/workflow`：保存编排图。
 - `GET /health`：健康检查。
 
 ### 目录

@@ -1,10 +1,10 @@
-from fastapi import APIRouter, HTTPException
-from fastapi.concurrency import run_in_threadpool
+from fastapi import APIRouter, HTTPException, Body
+from typing import Any, Dict, Optional
 from langchain_core.messages import HumanMessage
 from tortoise.transactions import in_transaction
 
-from app.core.workflow import build_graph
-from app.db.models import NodeRun, WorkflowRun
+from app.core.workflow import build_graph_from_def
+from app.db.models import NodeRun, WorkflowRun, App, WorkflowDef
 from app.schemas import WorkflowRunRequest, WorkflowRunResponse
 
 router = APIRouter()
@@ -13,32 +13,66 @@ router = APIRouter()
 @router.post("/workflow/run", response_model=WorkflowRunResponse)
 async def run_workflow(payload: WorkflowRunRequest):
     """
-    Run a minimal Start -> LLM -> End workflow via LangGraph.
+    根据应用定义的图结构动态运行工作流。
     """
-    graph = build_graph()
-    state = {"messages": [HumanMessage(content=payload.input)], "context": payload.context}
+    app_id = payload.context.get("app_id")
+    if not app_id:
+        raise HTTPException(status_code=400, detail="Missing app_id in context")
+
+    # 获取工作流定义
+    workflow_def = await WorkflowDef.get_or_none(app_id=app_id)
+    if not workflow_def or not workflow_def.graph:
+        raise HTTPException(status_code=404, detail="Workflow definition not found or empty")
+
+    graph = build_graph_from_def(workflow_def.graph)
+    
+    # 构造初始状态
+    # 注意：我们的 WorkflowState 现在包含 messages, inputs, outputs, temp_data
+    initial_state = {
+        "messages": [], # 初始消息列表为空，由节点产生或从 inputs 读取
+        "inputs": {"input": payload.input, **payload.context},
+        "outputs": {},
+        "temp_data": {}
+    }
 
     try:
         async with in_transaction():
-            run = await WorkflowRun.create(workflow_name="demo_graph", status="running", input_text=payload.input)
+            run = await WorkflowRun.create(
+                workflow_name=f"app_{app_id}", 
+                status="running", 
+                input_text=payload.input
+            )
 
-            # LangGraph compiled app supports stream; here we use invoke for simplicity
-            result_state = await run_in_threadpool(graph.invoke, state)
-            output_messages = result_state["messages"]
-            last_message = output_messages[-1] if output_messages else None
-            output_text = getattr(last_message, "content", "") if last_message else ""
+            # 执行工作流
+            # 由于 LangGraph 的 ainvoke 是异步的，直接调用即可
+            result_state = await graph.ainvoke(initial_state)
+            
+            # 提取最终输出
+            # 优先从 outputs.final_answer 获取，否则取最后一条消息
+            outputs = result_state.get("outputs", {})
+            final_answer = outputs.get("final_answer")
+            
+            if not final_answer:
+                messages = result_state.get("messages", [])
+                if messages:
+                    final_answer = messages[-1].content
+                else:
+                    final_answer = ""
 
+            # 记录节点执行情况 (简化实现，目前只记录最终结果)
             await NodeRun.create(
                 workflow_run=run,
-                node_name="llm",
+                node_name="execution_summary",
                 status="succeeded",
-                payload={"output": output_text},
+                payload=outputs,
             )
 
             run.status = "succeeded"
-            run.output_text = output_text
+            run.output_text = str(final_answer)
             await run.save()
 
-        return WorkflowRunResponse(run_id=run.id, output=run.output_text or "")
+        return WorkflowRunResponse(run_id=run.id, output=run.output_text)
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))

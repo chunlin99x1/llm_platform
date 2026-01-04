@@ -1,4 +1,19 @@
-import type { ChatRequest, ChatResponse, WorkflowRunRequest, WorkflowRunResponse } from "./types";
+import type {
+  Agent,
+  AgentChatRequest,
+  AgentChatResponse,
+  AgentCreateRequest,
+  AgentSessionCreateRequest,
+  AgentSessionResponse,
+  AppCreateRequest,
+  AppItem,
+  ChatRequest,
+  ChatResponse,
+  WorkflowDefResponse,
+  WorkflowDefUpdateRequest,
+  WorkflowRunRequest,
+  WorkflowRunResponse
+} from "./types";
 
 const DEFAULT_BASE_URL = "http://localhost:8000";
 
@@ -27,3 +42,46 @@ export async function runWorkflow(req: WorkflowRunRequest): Promise<WorkflowRunR
   return postJson<WorkflowRunResponse>("/workflow/run", req);
 }
 
+export async function listAgents(): Promise<Agent[]> {
+  const res = await fetch(`${apiBaseUrl()}/agents`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return (await res.json()) as Agent[];
+}
+
+export async function createAgent(req: AgentCreateRequest): Promise<Agent> {
+  return postJson<Agent>("/agents", req);
+}
+
+export async function createAgentSession(agentId: number, req: AgentSessionCreateRequest): Promise<AgentSessionResponse> {
+  return postJson<AgentSessionResponse>(`/agents/${agentId}/sessions`, req);
+}
+
+export async function agentChat(agentId: number, req: AgentChatRequest): Promise<AgentChatResponse> {
+  return postJson<AgentChatResponse>(`/agents/${agentId}/chat`, req);
+}
+
+export async function listApps(): Promise<AppItem[]> {
+  const res = await fetch(`${apiBaseUrl()}/apps`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return (await res.json()) as AppItem[];
+}
+
+export async function createApp(req: AppCreateRequest): Promise<AppItem> {
+  return postJson<AppItem>("/apps", req);
+}
+
+export async function getWorkflow(appId: number): Promise<WorkflowDefResponse> {
+  const res = await fetch(`${apiBaseUrl()}/apps/${appId}/workflow`, { cache: "no-store" });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return (await res.json()) as WorkflowDefResponse;
+}
+
+export async function updateWorkflow(appId: number, req: WorkflowDefUpdateRequest): Promise<WorkflowDefResponse> {
+  const res = await fetch(`${apiBaseUrl()}/apps/${appId}/workflow`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(req)
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+  return (await res.json()) as WorkflowDefResponse;
+}

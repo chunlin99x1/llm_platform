@@ -1,8 +1,41 @@
 @import "tailwindcss";
 @config "../tailwind.config.ts";
 
+
+
+:root {
+  --dify-bg: #f2f4f7;
+}
+
+.dark {
+  --dify-bg: #0b0f17;
+}
+
+body {
+  background-color: var(--dify-bg);
+  @apply antialiased;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-default-300 rounded-full;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-default-400;
+}
+@import "reactflow/dist/style.css";
+
 html,
 body {
   height: 100%;
 }
-
