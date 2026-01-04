@@ -1,0 +1,10 @@
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+langchain==1.2.0
+langchain-core==1.2.6
+langchain-openai==1.1.6
+langgraph==1.0.5
+tortoise-orm==0.25.3
+asyncpg>=0.29.0
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
