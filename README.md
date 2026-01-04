@@ -27,6 +27,17 @@ cd fastapi_llmops
 docker compose up -d
 ```
 
+### 启动前端（Next.js + HeroUI）
+
+```bash
+cd fastapi_llmops/web
+cp .env.example .env.local
+pnpm install
+pnpm dev
+```
+
+访问：`http://localhost:3000`
+
 ### 主要接口
 
 - `POST /chat`：简单对话，入参 `{"messages": [{"role":"user","content":"hi"}]}`。

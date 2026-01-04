@@ -39,3 +39,12 @@ dist/
 # Logs
 logs/
 *.log
+
+# Next.js (frontend)
+web/node_modules/
+web/.next/
+web/out/
+web/.env.local
+web/.env.production.local
+web/.env.development.local
+web/.env.test.local
