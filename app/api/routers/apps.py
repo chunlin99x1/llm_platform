@@ -1,9 +1,11 @@
+import json
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import StreamingResponse
 from fastapi.concurrency import run_in_threadpool
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, ToolMessage
 from tortoise.exceptions import IntegrityError
 from tortoise.transactions import in_transaction
-from fastapi import APIRouter, HTTPException
-from app.core.agent import agent_invoke
+from app.core.agent import agent_invoke, agent_stream
 from app.db.models import App, ChatMessage, WorkflowDef
 from app.schemas import (
     AgentChatRequest,
@@ -129,22 +131,33 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
         # Note: ChatMessage model is simple, doesn't store tool/system role specifically for now
 
     user_msg = HumanMessage(content=payload.input)
+    
+    async def stream_generator():
+        # 1. 保存用户消息
+        async with in_transaction():
+            await ChatMessage.create(session_id=session_id, role="user", content=payload.input)
+        
+        # 2. 调用流式生成器
+        async for item in agent_stream(
+            system_prompt=instructions,
+            messages=history + [user_msg],
+            enabled_tools=enabled_tools
+        ):
+            if item["type"] == "message":
+                # 持久化中间消息（AI 思考或工具回答）
+                async with in_transaction():
+                    await ChatMessage.create(
+                        session_id=session_id,
+                        role=item["role"],
+                        content=item["content"],
+                        name=item.get("name"),
+                        tool_call_id=item.get("tool_call_id"),
+                        tool_calls=item.get("tool_calls")
+                    )
+                continue # 持久化专用包，不发给前端
 
-    # 执行智能体逻辑 (同步转异步)
-    final_text, convo, tool_traces = await run_in_threadpool(
-        agent_invoke,
-        system_prompt=instructions,
-        messages=history + [user_msg],
-        enabled_tools=enabled_tools
-    )
+            yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
+        
+        yield "data: [DONE]\n\n"
 
-    # 持久化新消息
-    async with in_transaction():
-        await ChatMessage.create(session_id=session_id, role="user", content=payload.input)
-        await ChatMessage.create(session_id=session_id, role="assistant", content=final_text)
-
-    return AgentChatResponse(
-        session_id=session_id,
-        content=final_text,
-        tool_traces=[AgentToolTrace(**t) for t in tool_traces]
-    )
+    return StreamingResponse(stream_generator(), media_type="text/event-stream")

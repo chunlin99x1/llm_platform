@@ -70,7 +70,7 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChat, listTools } from "@/lib/api";
+import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChat, appChatStream, listTools } from "@/lib/api";
 import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace } from "@/lib/types";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -247,14 +247,22 @@ export default function OrchestratePage({ appId }: { appId: number }) {
 
   async function onRun() {
     setRunning(true);
+    setRunOutput("");
+    setToolTraces([]);
     try {
       if (app?.mode === "agent") {
-        const resp = await appChat(appId, { input: runInput, session_id: previewSessionId });
-        setRunOutput(resp.content);
-        setToolTraces(resp.tool_traces || []);
+        await appChatStream(appId, { input: runInput, session_id: previewSessionId }, (event) => {
+          if (event.type === "text") {
+            setRunOutput((prev) => prev + event.content);
+          } else if (event.type === "trace") {
+            setToolTraces((prev) => [...prev, { id: event.id, name: event.name, args: event.args, result: "执行中..." }]);
+          } else if (event.type === "trace_result") {
+            setToolTraces((prev) =>
+              prev.map(t => t.id === event.id ? { ...t, result: event.result } : t)
+            );
+          }
+        });
       } else {
-        setRunOutput("");
-        setToolTraces([]);
         const resp = await runWorkflow({ input: runInput, context: { app_id: appId } });
         setRunOutput(resp.output);
       }

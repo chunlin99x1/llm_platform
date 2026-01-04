@@ -110,6 +110,50 @@ export async function appChat(appId: number, payload: AgentChatRequest): Promise
   return (await res.json()) as AgentChatResponse;
 }
 
+export async function appChatStream(
+  appId: number,
+  payload: AgentChatRequest,
+  onEvent: (event: any) => void
+): Promise<void> {
+  const res = await fetch(`${apiBaseUrl()}/apps/${appId}/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+
+  const reader = res.body?.getReader();
+  if (!reader) return;
+
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() || "";
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed || !trimmed.startsWith("data: ")) continue;
+
+      const data = trimmed.slice(6).trim();
+      if (data === "[DONE]") return;
+
+      try {
+        const json = JSON.parse(data);
+        onEvent(json);
+      } catch (e) {
+        console.warn("Failed to parse SSE line:", trimmed);
+      }
+    }
+  }
+}
+
 export async function listTools(): Promise<{ categories: ToolCategory[] }> {
   const res = await fetch(`${apiBaseUrl()}/agents/tools`, { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
