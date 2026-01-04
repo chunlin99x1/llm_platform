@@ -60,8 +60,14 @@ export async function agentChat(agentId: number, req: AgentChatRequest): Promise
   return postJson<AgentChatResponse>(`/agents/${agentId}/chat`, req);
 }
 
-export async function listApps(): Promise<AppItem[]> {
-  const res = await fetch(`${apiBaseUrl()}/apps`, { cache: "no-store" });
+export async function listApps(params?: { name?: string; mode?: string }): Promise<AppItem[]> {
+  const url = new URL(`${apiBaseUrl()}/apps`);
+  if (params) {
+    Object.entries(params).forEach(([key, value]) => {
+      if (value) url.searchParams.append(key, value);
+    });
+  }
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
   return (await res.json()) as AppItem[];
 }

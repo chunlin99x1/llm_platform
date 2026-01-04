@@ -5,15 +5,24 @@
 
 :root {
   --dify-bg: #f2f4f7;
+  --dify-sidebar: #ffffff;
 }
 
-.dark {
-  --dify-bg: #0b0f17;
-}
+@layer base {
+  html {
+    font-size: 14px;
+    /* Default was 16px, making it 14px for compact feel */
+  }
 
-body {
-  background-color: var(--dify-bg);
-  @apply antialiased;
+  body {
+    background-color: var(--dify-bg);
+    color: #1c222b;
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+    transition-duration: 300ms;
+  }
 }
 
 /* Custom Scrollbar */
@@ -27,12 +36,14 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-default-300 rounded-full;
+  background-color: #cbd5e1;
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-default-400;
+  background-color: #94a3b8;
 }
+
 @import "reactflow/dist/style.css";
 
 html,

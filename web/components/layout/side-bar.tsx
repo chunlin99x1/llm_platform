@@ -1,6 +1,6 @@
 "use client";
 
-import { Button, Tooltip } from "@heroui/react";
+import { Button, Tooltip, Avatar } from "@heroui/react";
 import {
   LayoutGrid,
   Library,
@@ -8,14 +8,14 @@ import {
   Compass,
   Settings,
   ShieldCheck,
-  Zap
+  Zap,
+  MoreVertical
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { clsx } from "clsx";
 
 const navItems = [
-  { icon: Compass, label: "探索", href: "/explore" },
   { icon: LayoutGrid, label: "应用", href: "/apps" },
   { icon: Library, label: "知识库", href: "/knowledge" },
   { icon: Zap, label: "工具", href: "/tools" },
@@ -25,50 +25,47 @@ export default function SideBar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex h-full w-[72px] flex-col items-center border-r border-divider bg-content1 py-4">
-      <div className="mb-8 flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/20">
-        <ShieldCheck size={24} />
+    <div className="flex h-screen w-[56px] flex-col items-center border-r border-divider bg-white py-4 shadow-[1px_0_10px_rgba(0,0,0,0.02)] z-30">
+      <div className="mb-6">
+        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary text-white shadow-lg shadow-primary/30">
+          <Zap size={18} fill="white" />
+        </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-4">
+      <div className="flex flex-1 flex-col gap-3">
         {navItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
+          const Icon = item.icon;
+
           return (
-            <Tooltip key={item.href} content={item.label} placement="right">
-              <Button
-                as={Link}
+            <Tooltip key={item.href} content={item.label} placement="right" delay={0} closeDelay={0}>
+              <Link
                 href={item.href}
-                isIconOnly
-                variant={isActive ? "flat" : "light"}
-                color={isActive ? "primary" : "default"}
                 className={clsx(
-                  "h-12 w-12 rounded-xl transition-all",
-                  !isActive && "text-foreground-500 hover:text-foreground"
+                  "group relative flex h-9 w-9 items-center justify-center rounded-xl transition-all duration-300",
+                  isActive
+                    ? "bg-primary/10 text-primary"
+                    : "text-foreground hover:bg-default-100 hover:text-foreground-600"
                 )}
               >
-                <item.icon size={22} />
-              </Button>
+                <Icon size={20} strokeWidth={isActive ? 2.5 : 2} />
+                {isActive && (
+                  <div className="absolute -left-2 h-5 w-1 rounded-r-full bg-primary" />
+                )}
+              </Link>
             </Tooltip>
           );
         })}
       </div>
 
-      <div className="mt-auto flex flex-col gap-4">
-        <Tooltip content="设置" placement="right">
-          <Button
-            isIconOnly
-            variant="light"
-            className="h-12 w-12 rounded-xl text-foreground-500 hover:text-foreground"
-          >
-            <Settings size={22} />
-          </Button>
-        </Tooltip>
-        
-        <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-tr from-primary to-secondary p-[2px]">
-          <div className="flex h-full w-full items-center justify-center rounded-full bg-content1 text-xs font-bold">
-            USER
-          </div>
-        </div>
+      <div className="mt-auto flex flex-col gap-3">
+        <Button isIconOnly variant="light" className="text-foreground h-9 w-9 rounded-xl">
+          <Settings size={18} />
+        </Button>
+        <Avatar
+          src="https://i.pravatar.cc/150?u=a042581f4e29026704d"
+          className="h-8 w-8 cursor-pointer ring-2 ring-transparent hover:ring-primary/20 transition-all rounded-lg"
+        />
       </div>
     </div>
   );

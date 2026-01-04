@@ -40,8 +40,14 @@ async def create_app(payload: AppCreateRequest):
 
 
 @router.get("", response_model=list[AppResponse])
-async def list_apps():
-    apps = await App.all().order_by("-id")
+async def list_apps(name: str = None, mode: str = None):
+    query = App.all()
+    if name:
+        query = query.filter(name__icontains=name)
+    if mode and mode != "all":
+        query = query.filter(mode=mode)
+    
+    apps = await query.order_by("-id")
     return [AppResponse(id=a.id, name=a.name, mode=a.mode) for a in apps]
 
 

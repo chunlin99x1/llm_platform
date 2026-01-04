@@ -16,7 +16,15 @@ import {
   Textarea,
   Tabs,
   Tab,
-  Tooltip
+  Tooltip,
+  Breadcrumbs,
+  BreadcrumbItem,
+  Avatar,
+  User,
+  Dropdown,
+  DropdownTrigger,
+  DropdownMenu,
+  DropdownItem,
 } from "@heroui/react";
 import {
   Play,
@@ -29,9 +37,14 @@ import {
   Code2,
   Database,
   Terminal,
-  Activity
+  Activity,
+  History,
+  MoreVertical,
+  ChevronLeft,
+  Share2,
 } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
+import Link from "next/link";
 import ReactFlow, {
   Background,
   Controls,
@@ -44,7 +57,8 @@ import ReactFlow, {
   type Node,
   type OnConnect,
   Handle,
-  Position
+  Position,
+  BackgroundVariant
 } from "reactflow";
 import "reactflow/dist/style.css";
 
@@ -53,44 +67,53 @@ import type { WorkflowGraph } from "@/lib/types";
 
 // --- Node Styles ---
 
-function BaseNode({ title, icon: Icon, children, colorClass }: { title: string, icon: any, children: React.ReactNode, colorClass: string }) {
+function BaseNode({ title, icon: Icon, children, colorClass, selected }: { title: string, icon: any, children: React.ReactNode, colorClass: string, selected?: boolean }) {
   return (
-    <div className="group relative min-w-[200px] cursor-pointer rounded-2xl border border-divider bg-content1 shadow-sm transition-all hover:shadow-md hover:border-primary/50">
-      <div className={`absolute left-0 top-0 bottom-0 w-1.5 rounded-l-2xl ${colorClass}`} />
-      <div className="flex items-center gap-2 border-b border-divider/50 px-4 py-2.5">
-        <Icon size={16} className="text-foreground-500" />
-        <span className="text-xs font-bold uppercase tracking-wider text-foreground-600">{title}</span>
+    <div className={`group relative min-w-[180px] cursor-pointer rounded-xl border bg-content1 shadow-sm transition-all duration-300 ${selected ? 'ring-2 ring-primary border-primary shadow-lg shadow-primary/10' : 'border-divider hover:border-primary/40 hover:shadow-md'}`}>
+      <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${colorClass}`} />
+      <div className="flex items-center justify-between border-b border-divider/50 px-3 py-1.5">
+        <div className="flex items-center gap-1.5">
+          <Icon size={12} className="text-foreground-500" />
+          <span className="text-[9px] font-bold uppercase tracking-wider text-foreground-500">{title}</span>
+        </div>
+        <MoreVertical size={12} className="text-foreground-300" />
       </div>
-      <div className="px-4 py-4">{children}</div>
-      <Handle type="target" position={Position.Left} className="!h-2.5 !w-2.5 !border-2 !bg-background" />
-      <Handle type="source" position={Position.Right} className="!h-2.5 !w-2.5 !border-2 !bg-background" />
+      <div className="px-3 py-3">{children}</div>
+      <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-2 !border-white !bg-primary" />
+      <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-2 !border-white !bg-primary" />
     </div>
   );
 }
 
-function StartNode({ data }: { data: any }) {
+function StartNode({ data, selected }: { data: any, selected: boolean }) {
   return (
-    <BaseNode title="Start" icon={Play} colorClass="bg-success">
-      <div className="font-medium">{data.label || "开始"}</div>
+    <BaseNode title="Start" icon={Play} colorClass="bg-success" selected={selected}>
+      <div className="font-bold text-[13px] tracking-tight">{data.label || "开始"}</div>
     </BaseNode>
   );
 }
 
-function LLMNode({ data }: { data: any }) {
+function LLMNode({ data, selected }: { data: any, selected: boolean }) {
   return (
-    <BaseNode title="LLM" icon={Box} colorClass="bg-primary">
-      <div className="font-medium">{data.label || "LLM"}</div>
-      <div className="mt-2 line-clamp-2 text-[10px] text-foreground-500 bg-content2/50 rounded-lg p-1.5 leading-relaxed">
-        {data.prompt || "未设置 Prompt"}
+    <BaseNode title="LLM" icon={Box} colorClass="bg-primary" selected={selected}>
+      <div className="font-bold text-[13px] tracking-tight">{data.label || "LLM"}</div>
+      <div className="mt-2 overflow-hidden rounded-lg bg-content2/50 border border-divider/50">
+        <div className="bg-content3/40 px-1.5 py-0.5 flex items-center gap-1 border-b border-divider/30">
+          <Terminal size={8} className="text-foreground" />
+          <span className="text-[8px] font-bold text-foreground uppercase">System Prompt</span>
+        </div>
+        <div className="px-1.5 py-1.5 line-clamp-2 text-[9px] text-foreground-600 leading-tight font-mono">
+          {data.prompt || "未设置 Prompt..."}
+        </div>
       </div>
     </BaseNode>
   );
 }
 
-function AnswerNode({ data }: { data: any }) {
+function AnswerNode({ data, selected }: { data: any, selected: boolean }) {
   return (
-    <BaseNode title="Answer" icon={MessageSquare} colorClass="bg-warning">
-      <div className="font-medium text-warning-600 dark:text-warning-400">{data.label || "回答"}</div>
+    <BaseNode title="Answer" icon={MessageSquare} colorClass="bg-warning" selected={selected}>
+      <div className="font-bold text-[13px] text-warning-700 tracking-tight">{data.label || "回答"}</div>
     </BaseNode>
   );
 }
@@ -99,7 +122,7 @@ const nodeTypes = {
   start: StartNode,
   llm: LLMNode,
   answer: AnswerNode,
-  end: AnswerNode, // Temporarily use AnswerNode for End
+  end: AnswerNode,
 };
 
 // --- Main Page ---
@@ -200,53 +223,82 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     }
   }
 
-  if (loading) return <div className="flex h-full items-center justify-center text-foreground-500">加载中...</div>;
+  if (loading) return (
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-3 bg-background">
+      <div className="relative flex h-12 w-12 items-center justify-center">
+        <div className="absolute inset-0 animate-ping rounded-full bg-primary/20" />
+        <div className="h-8 w-8 animate-pulse rounded-lg bg-primary shadow-md shadow-primary/30 flex items-center justify-center text-white">
+          <Box size={18} />
+        </div>
+      </div>
+      <div className="text-[11px] font-medium text-foreground animate-pulse uppercase tracking-wider">进入编排空间...</div>
+    </div>
+  );
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      {/* Header */}
-      <header className="flex h-[56px] items-center justify-between border-b border-divider bg-content1 px-6">
+      {/* Compact Header */}
+      <header className="flex h-[48px] items-center justify-between border-b border-divider bg-background/80 backdrop-blur-md px-4 z-20">
         <div className="flex items-center gap-4">
-          <div className="text-sm font-bold flex items-center gap-2">
-            <div className="h-6 w-6 rounded bg-primary flex items-center justify-center text-white">
-              <Box size={14} />
-            </div>
-            Workflow {appId}
+          <Button as={Link} href="/apps" isIconOnly variant="light" size="sm" className="text-foreground h-8 w-8">
+            <ChevronLeft size={16} />
+          </Button>
+
+          <div className="flex flex-col">
+            <Breadcrumbs size="sm" underline="hover" classNames={{ list: "gap-1" }}>
+              <BreadcrumbItem classNames={{ item: "text-[11px]" }}>Apps</BreadcrumbItem>
+              <BreadcrumbItem classNames={{ item: "text-[11px] font-bold text-foreground" }}>App #{appId}</BreadcrumbItem>
+            </Breadcrumbs>
           </div>
-          <Divider orientation="vertical" className="h-6" />
+
+          <Divider orientation="vertical" className="h-4 mx-1" />
+
           <Tabs
             variant="light"
-            aria-label="Tabs"
+            aria-label="Nav"
             selectedKey={activeTab}
             onSelectionChange={(k) => setActiveTab(k as string)}
             classNames={{
-              tabList: "gap-6",
-              cursor: "w-full",
-              tab: "max-w-fit px-0 h-14",
-              tabContent: "group-data-[selected=true]:text-primary font-medium"
+              tabList: "gap-4 p-0",
+              cursor: "w-full bg-primary/10",
+              tab: "max-w-fit px-3 h-8 rounded-lg",
+              tabContent: "group-data-[selected=true]:text-primary group-data-[selected=true]:font-bold text-[11px]"
             }}
           >
-            <Tab key="orchestrate" title="工作流编排" />
-            <Tab key="preview" title="预览" />
-            <Tab key="logs" title="操作日志" />
+            <Tab key="orchestrate" title="编排" />
+            <Tab key="preview" title="调试" />
+            <Tab key="logs" title="日志" />
           </Tabs>
         </div>
+
         <div className="flex items-center gap-2">
-          <Button
-            variant="flat"
-            startContent={<Play size={16} />}
-            onPress={() => setActiveTab("preview")}
-          >
-            运行预览
-          </Button>
-          <Button
-            color="primary"
-            startContent={<Save size={16} />}
-            isLoading={saving}
-            onPress={onSave}
-          >
-            发布
-          </Button>
+          <Tooltip content="设置">
+            <Button isIconOnly variant="light" size="sm" className="text-foreground-500 h-8 w-8">
+              <Settings size={14} />
+            </Button>
+          </Tooltip>
+
+          <div className="flex items-center gap-2 ml-2">
+            <Button
+              variant="flat"
+              size="sm"
+              startContent={<Play size={12} />}
+              onPress={() => setActiveTab("preview")}
+              className="font-bold bg-content2 hover:bg-content3 h-8 text-[11px]"
+            >
+              运行预览
+            </Button>
+            <Button
+              color="primary"
+              size="sm"
+              startContent={<Save size={12} />}
+              isLoading={saving}
+              onPress={onSave}
+              className="font-bold shadow-md shadow-primary/20 h-8 text-[11px]"
+            >
+              发布更新
+            </Button>
+          </div>
         </div>
       </header>
 
@@ -254,7 +306,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
         {activeTab === "orchestrate" ? (
           <div className="flex h-full">
             {/* Canvas Area */}
-            <div className="flex-1 relative bg-[#F9FAFB] dark:bg-[#0B0F17]">
+            <div className="flex-1 relative bg-[#f8fafc]">
               <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -264,137 +316,203 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 nodeTypes={nodeTypes}
                 onNodeClick={(_, node) => setSelectedId(node.id)}
                 fitView
+                className="bg-dot-pattern"
+                snapToGrid
+                snapGrid={[20, 20]}
+                defaultEdgeOptions={{ type: 'smoothstep', animated: true, style: { strokeWidth: 1.5 } }}
               >
-                <Background color="#ccc" gap={20} />
-                <Controls />
-                <MiniMap />
+                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
+                <Controls className="bg-white border-divider shadow-md !left-4 !bottom-4 scale-75" />
               </ReactFlow>
 
-              {/* Float Toolbars */}
-              <div className="absolute left-6 top-6 flex flex-col gap-2">
-                {[
-                  { type: 'start', icon: Play, label: 'Start' },
-                  { type: 'llm', icon: Box, label: 'LLM' },
-                  { type: 'answer', icon: MessageSquare, label: 'Answer' },
-                ].map((item) => (
-                  <Tooltip key={item.type} content={item.label} placement="right">
-                    <Button
-                      isIconOnly
-                      variant="flat"
-                      className="h-10 w-10 bg-content1 shadow-md border-divider hover:border-primary/50"
-                      onPress={() => addNode(item.type)}
-                    >
-                      <item.icon size={20} />
-                    </Button>
-                  </Tooltip>
-                ))}
+              {/* Compact Floating Toolbox */}
+              <div className="absolute left-4 top-4 flex flex-col gap-2">
+                <Card className="bg-white/80 backdrop-blur border-divider p-1 shadow-lg">
+                  <div className="flex flex-col gap-1">
+                    {[
+                      { type: 'start', icon: Play, label: '开始', color: 'success' },
+                      { type: 'llm', icon: Box, label: 'LLM 节点', color: 'primary' },
+                      { type: 'answer', icon: MessageSquare, label: '回答节点', color: 'warning' },
+                    ].map((item) => (
+                      <Tooltip key={item.type} content={item.label} placement="right">
+                        <Button
+                          isIconOnly
+                          size="sm"
+                          variant="flat"
+                          color={item.color as any}
+                          className="h-8 w-8 bg-white border-divider transition-all active:scale-95"
+                          onPress={() => addNode(item.type)}
+                        >
+                          <item.icon size={16} />
+                        </Button>
+                      </Tooltip>
+                    ))}
+                  </div>
+                </Card>
               </div>
             </div>
 
-            {/* Side Config Panel */}
-            <div className="w-[360px] border-l border-divider bg-content1 flex flex-col overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-4 border-b border-divider">
-                <div className="text-sm font-bold flex items-center gap-2">
-                  <Settings size={16} className="text-foreground-500" />
-                  配置 - {selectedNode?.type?.toUpperCase() || "未选择"}
+            {/* Compact Config Panel */}
+            <div className="w-[300px] border-l border-divider bg-background flex flex-col overflow-hidden shadow-xl z-10 text-xs">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-divider bg-content1/50">
+                <div className="flex flex-col">
+                  <div className="text-[9px] font-bold text-foreground uppercase tracking-widest leading-none mb-1">Config</div>
+                  <div className="flex items-center gap-1.5">
+                    {selectedNode ? (
+                      <Chip size="sm" variant="dot" color="primary" classNames={{ content: "text-[10px] font-bold" }}>{selectedNode.type?.toUpperCase()}</Chip>
+                    ) : (
+                      <span className="text-foreground italic text-[11px]">No Selection</span>
+                    )}
+                  </div>
                 </div>
                 {selectedNode && (
-                  <Button isIconOnly size="sm" variant="light" color="danger" onPress={() => setNodes(nodes.filter(n => n.id !== selectedId))}>
-                    <Terminal size={14} />
-                  </Button>
+                  <Dropdown>
+                    <DropdownTrigger>
+                      <Button isIconOnly variant="light" size="sm" className="h-7 w-7"><MoreVertical size={14} /></Button>
+                    </DropdownTrigger>
+                    <DropdownMenu aria-label="Node Actions" className="text-xs">
+                      <DropdownItem key="copy">复制节点</DropdownItem>
+                      <DropdownItem key="delete" color="danger" onPress={() => setNodes(nodes.filter(n => n.id !== selectedId))}>删除节点</DropdownItem>
+                    </DropdownMenu>
+                  </Dropdown>
                 )}
               </div>
 
               <ScrollShadow className="flex-1 p-4">
                 {selectedNode ? (
-                  <div className="flex flex-col gap-6">
-                    <Input
-                      label="节点名称"
-                      variant="bordered"
-                      value={selectedNode.data?.label || ""}
-                      onValueChange={(v) => updateSelectedNode({ label: v })}
-                    />
+                  <div className="flex flex-col gap-5">
+                    <section>
+                      <div className="text-[10px] font-bold text-foreground mb-2 px-1 flex items-center gap-1.5 uppercase tracking-wide">
+                        <Settings size={10} />
+                        基本设置
+                      </div>
+                      <Input
+                        label="节点名称"
+                        labelPlacement="outside"
+                        placeholder="例如: 基础回答"
+                        variant="bordered"
+                        size="sm"
+                        value={selectedNode.data?.label || ""}
+                        onValueChange={(v) => updateSelectedNode({ label: v })}
+                        classNames={{ inputWrapper: "h-9", label: "text-[10px]", input: "text-[11px]" }}
+                      />
+                    </section>
 
                     {selectedNode.type === 'llm' && (
-                      <div className="flex flex-col gap-3">
-                        <div className="text-xs font-bold text-foreground-500 flex items-center justify-between">
-                          PROMPT TEMPLATE
-                          <Chip size="sm" variant="flat" color="primary">SYSTEM</Chip>
+                      <section className="flex flex-col gap-3">
+                        <div className="flex items-center justify-between px-1">
+                          <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide">
+                            <Terminal size={10} />
+                            PROMPT
+                          </div>
+                          <Chip size="sm" variant="flat" color="primary" className="h-4 text-[8px] font-bold">GPT-4O</Chip>
                         </div>
-                        <Textarea
-                          variant="bordered"
-                          minRows={12}
-                          placeholder="输入 Prompt..."
-                          value={selectedNode.data?.prompt || ""}
-                          onValueChange={(v) => updateSelectedNode({ prompt: v })}
-                        />
-                        <div className="p-3 bg-content2 rounded-xl text-[11px] text-foreground-500 leading-relaxed">
-                          提示：支持使用 <code className="text-primary font-bold">{"{{input}}"}</code> 引用变量。
+
+                        <div className="relative">
+                          <Textarea
+                            variant="bordered"
+                            minRows={10}
+                            placeholder="在此输入指令..."
+                            value={selectedNode.data?.prompt || ""}
+                            onValueChange={(v) => updateSelectedNode({ prompt: v })}
+                            classNames={{ input: "font-mono text-[11px] leading-tight", innerWrapper: "p-1" }}
+                          />
                         </div>
-                      </div>
+
+                        <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                          <div className="flex gap-2">
+                            <div className="text-[10px] text-foreground-600 leading-tight">
+                              提示：使用 <kbd className="bg-primary/10 text-primary font-bold px-1 rounded">{"{{input}}"}</kbd> 引用输入。
+                            </div>
+                          </div>
+                        </div>
+                      </section>
                     )}
 
                     {selectedNode.type === 'start' && (
-                      <div className="p-4 rounded-2xl border-2 border-dashed border-divider flex flex-col items-center gap-2 text-center">
-                        <Activity size={32} className="text-foreground-300" />
-                        <div className="text-xs text-foreground-400">开始节点，此处定义全局输入参数</div>
+                      <div className="py-8 flex flex-col items-center gap-3 text-center">
+                        <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center text-success">
+                          <Play size={20} />
+                        </div>
+                        <div>
+                          <div className="text-[11px] font-bold">起点节点</div>
+                          <p className="text-[10px] text-foreground mt-1 max-w-[160px] leading-snug">初始化输入与环境。</p>
+                        </div>
                       </div>
                     )}
                   </div>
                 ) : (
-                  <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground-400">
-                    <Box size={48} className="opacity-20" />
-                    <div className="text-sm italic">选择或添加一个节点开始配置</div>
+                  <div className="flex h-full flex-col items-center justify-center gap-4 text-foreground py-10 px-6 text-center">
+                    <Box size={40} className="opacity-10" />
+                    <div>
+                      <div className="text-[11px] font-bold text-foreground-500 mb-1 leading-none uppercase tracking-wide">未选中节点</div>
+                      <p className="text-[10px] leading-relaxed">点击画布节点进行编辑。</p>
+                    </div>
                   </div>
                 )}
               </ScrollShadow>
             </div>
           </div>
         ) : activeTab === "preview" ? (
-          <div className="flex h-full items-center justify-center bg-content2/30 p-8">
-            <Card className="max-w-3xl w-full h-full shadow-lg">
+          <div className="flex h-full items-center justify-center bg-content2/5 p-6">
+            <Card className="max-w-4xl w-full h-full shadow-xl border-divider bg-background overflow-hidden relative rounded-2xl">
               <CardBody className="p-0 flex flex-row">
-                {/* Debug Settings */}
-                <div className="w-[300px] border-r border-divider p-6 bg-content1/50">
-                  <div className="text-sm font-bold mb-6 flex items-center gap-2">
-                    <Settings size={16} />
-                    参数设置
+                {/* Compact Debug Settings */}
+                <div className="w-[280px] border-r border-divider p-6 bg-content1/30 flex flex-col">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="text-[11px] font-bold flex items-center gap-1.5 uppercase tracking-wide">
+                      <Terminal size={14} className="text-primary" />
+                      运行测试
+                    </div>
                   </div>
-                  <Textarea
-                    label="用户输入 (input)"
-                    variant="bordered"
-                    minRows={6}
-                    value={runInput}
-                    onValueChange={setRunInput}
-                  />
+
+                  <section className="flex-1 flex flex-col gap-4">
+                    <div className="flex flex-col gap-1.5">
+                      <div className="text-[9px] font-bold text-foreground uppercase tracking-widest px-1">Inputs</div>
+                      <Input
+                        label="input"
+                        variant="bordered"
+                        size="sm"
+                        placeholder="发送消息..."
+                        value={runInput}
+                        onValueChange={setRunInput}
+                        classNames={{ label: "text-foreground-500 font-bold", inputWrapper: "h-9", input: "text-[11px]" }}
+                      />
+                    </div>
+                  </section>
+
                   <Button
-                    className="mt-6 w-full"
+                    className="mt-6 w-full h-10 text-[11px] font-bold shadow-md shadow-primary/20"
                     color="primary"
                     isLoading={running}
                     onPress={onRun}
-                    startContent={<Play size={16} />}
+                    startContent={<Play size={14} fill="currentColor" />}
                   >
-                    开始运行
+                    开始运行调试
                   </Button>
                 </div>
 
-                {/* Chat Result */}
-                <div className="flex-1 flex flex-col bg-background">
-                  <div className="flex-1 overflow-auto p-8 flex flex-col gap-6">
+                {/* Compact Chat Result */}
+                <div className="flex-1 flex flex-col bg-white overflow-hidden">
+                  <div className="flex-1 overflow-auto p-6 flex flex-col gap-6">
                     {runOutput ? (
-                      <div className="flex flex-col gap-3">
-                        <div className="flex items-center gap-2 text-xs font-bold text-foreground-400">
-                          <Box size={14} />
-                          FINAL OUTPUT
+                      <div className="flex flex-col gap-3 animate-in fade-in slide-in-from-bottom-3 duration-500">
+                        <div className="flex items-center gap-1.5">
+                          <Avatar icon={<Terminal size={10} />} classNames={{ base: "bg-primary text-white h-5 w-5" }} />
+                          <span className="text-[9px] font-bold text-foreground uppercase tracking-widest">Output</span>
+                          <Divider className="flex-1 ml-2" />
                         </div>
-                        <div className="p-6 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed">
+                        <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-foreground-800">
                           {runOutput}
                         </div>
                       </div>
                     ) : (
-                      <div className="flex h-full flex-col items-center justify-center text-foreground-500 gap-4 opacity-30">
-                        <Terminal size={64} />
-                        <div className="text-sm">点击左侧“开始运行”查看执行轨迹</div>
+                      <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">
+                        <Terminal size={48} strokeWidth={1} />
+                        <div className="text-center max-w-[200px]">
+                          <div className="text-[11px] font-bold mb-1 uppercase tracking-wide">等待输入</div>
+                          <p className="text-[10px] leading-tight italic">点击左侧按钮开始测试工作流...</p>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -403,8 +521,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             </Card>
           </div>
         ) : (
-          <div className="p-12 text-center text-foreground-400">
-            日志系统开发中...
+          <div className="p-10 flex flex-col items-center justify-center gap-4 text-foreground h-full">
+            <History size={40} strokeWidth={1} className="opacity-20" />
+            <div className="text-[10px] italic font-medium uppercase tracking-widest">日志系统正在迭代中...</div>
           </div>
         )}
       </div>
