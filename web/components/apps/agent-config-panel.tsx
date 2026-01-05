@@ -29,6 +29,8 @@ import {
     useDisclosure,
     Select,
     SelectItem,
+    Tabs,
+    Tab,
 } from "@heroui/react";
 import {
     Terminal,
@@ -47,6 +49,8 @@ import {
     Info,
     Variable,
     Pencil,
+    Server,
+    Link,
 } from "lucide-react";
 import type { ToolCategory, PromptVariable } from "@/lib/types";
 
@@ -93,8 +97,25 @@ export function AgentConfigPanel({
     const [varName, setVarName] = useState("");
     const [varType, setVarType] = useState<"string" | "number" | "select">("string");
 
-    // 计算已启用工具数量
-    const enabledCount = enabledTools.length;
+    // MCP Server State (UI Prototype)
+    const { isOpen: isMCPOpen, onOpen: onMCPOpen, onOpenChange: onMCPOpenChange } = useDisclosure();
+    const [mcpServers, setMcpServers] = useState<any[]>([
+        { id: "1", name: "Custom Python Tools", url: "http://localhost:8000/mcp", status: "connected" }
+    ]);
+    const [editingMCPServer, setEditingMCPServer] = useState<any>(null);
+    const [mcpName, setMcpName] = useState("");
+    const [mcpUrl, setMcpUrl] = useState("");
+
+    // 计算工具名字典以便快速查找
+    const allToolNames = useMemo(() => {
+        return new Set(availableTools.flatMap(cat => cat.tools.map(t => t.name)));
+    }, [availableTools]);
+
+    // 计算已启用工具数量 (仅统计当前可用的工具，防止后端返回隐藏工具导致计数错误)
+    const enabledCount = useMemo(() => {
+        return enabledTools.filter(name => allToolNames.has(name)).length;
+    }, [enabledTools, allToolNames]);
+
     const totalCount = availableTools.reduce((sum, cat) => sum + cat.tools.length, 0);
 
     // 切换工具启用状态
@@ -142,6 +163,41 @@ export function AgentConfigPanel({
             setVariables([...variables, newVar]);
         }
         onOpenChange();
+    };
+
+    // MCP Operations
+    const handleAddMCPServer = () => {
+        setEditingMCPServer(null);
+        setMcpName("");
+        setMcpUrl("");
+        onMCPOpen();
+    };
+
+    const handleEditMCPServer = (server: any) => {
+        setEditingMCPServer(server);
+        setMcpName(server.name);
+        setMcpUrl(server.url);
+        onMCPOpen();
+    };
+
+    const handleSaveMCPServer = () => {
+        if (!mcpName || !mcpUrl) return;
+        const newServer = {
+            id: editingMCPServer?.id || Date.now().toString(),
+            name: mcpName,
+            url: mcpUrl,
+            status: "connected"
+        };
+        if (editingMCPServer) {
+            setMcpServers(mcpServers.map(s => s.id === editingMCPServer.id ? newServer : s));
+        } else {
+            setMcpServers([...mcpServers, newServer]);
+        }
+        onMCPOpenChange();
+    };
+
+    const handleDeleteMCPServer = (id: string) => {
+        setMcpServers(mcpServers.filter(s => s.id !== id));
     };
 
     return (
@@ -306,129 +362,198 @@ export function AgentConfigPanel({
                 </div>
 
 
-                {/* 系统指令 */}
-                <div className="p-5 border-b border-divider">
-                    <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                            <Terminal size={14} className="text-foreground/60" />
-                            <span className="text-xs font-semibold">系统指令</span>
-                        </div>
-                        <Tooltip content="定义智能体的角色、目标和行为准则">
-                            <Info size={14} className="text-foreground/40 cursor-help" />
-                        </Tooltip>
-                    </div>
-                    <Textarea
-                        variant="bordered"
-                        placeholder="你是一个专业的 AI 助手，能够使用各种工具来帮助用户解决问题..."
-                        minRows={8}
-                        value={instructions}
-                        onValueChange={setInstructions}
+                {/* 工具与 MCP 切换 */}
+                <div className="p-0 border-b border-divider">
+                    <Tabs
+                        aria-label="工具选项"
+                        variant="underlined"
+                        fullWidth
                         classNames={{
-                            input: "text-xs leading-relaxed font-mono",
-                            inputWrapper: "bg-content2/30 border-divider hover:border-primary/50 transition-colors",
+                            base: "px-5 border-b border-divider bg-content1/20",
+                            tabList: "gap-6 w-full relative rounded-none p-0 border-b border-divider",
+                            cursor: "w-full bg-primary",
+                            tab: "max-w-fit px-0 h-12",
+                            tabContent: "group-data-[selected=true]:text-primary font-semibold text-xs"
                         }}
-                    />
-                    <div className="mt-2 flex items-center justify-between">
-                        <span className="text-[10px] text-foreground/40">
-                            支持使用 {"{{variable_key}}"} 引用变量
-                        </span>
-                        <Chip size="sm" variant="flat" className="text-[9px] h-5">
-                            {instructions.length} 字符
-                        </Chip>
-                    </div>
-                </div>
-
-                {/* 工具列表 */}
-                <div className="p-5">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Settings size={14} className="text-foreground/60" />
-                            <span className="text-xs font-semibold">工具</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-foreground/50">
-                                {enabledCount}/{totalCount} 已启用
-                            </span>
-                        </div>
-                    </div>
-
-                    <div className="space-y-4">
-                        {availableTools.map((cat) => (
-                            <div key={cat.category}>
-                                <div className="flex items-center gap-2 mb-2 px-1">
-                                    <div className="h-1.5 w-1.5 rounded-full bg-primary/60" />
-                                    <span className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">
-                                        {cat.category}
-                                    </span>
+                    >
+                        <Tab
+                            key="tools"
+                            title={
+                                <div className="flex items-center gap-2">
+                                    <Settings size={14} />
+                                    <span>内置工具</span>
+                                    <Chip size="sm" variant="flat" className="h-4 text-[10px] bg-content3/50 px-1.5">
+                                        {enabledCount}/{totalCount}
+                                    </Chip>
                                 </div>
-                                <div className="space-y-1.5">
-                                    {cat.tools.map((tool) => {
-                                        const isEnabled = enabledTools.includes(tool.name);
-                                        const isHovered = hoveredTool === tool.name;
-                                        const IconComponent = toolIcons[tool.name] || Plus;
-
-                                        return (
-                                            <div
-                                                key={tool.name}
-                                                className={`group relative flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-200 cursor-pointer ${isEnabled
-                                                    ? "border-primary/30 bg-primary/5"
-                                                    : "border-divider hover:border-primary/20 hover:bg-content2/50"
-                                                    }`}
-                                                onMouseEnter={() => setHoveredTool(tool.name)}
-                                                onMouseLeave={() => setHoveredTool(null)}
-                                            >
-                                                {/* 工具图标 */}
-                                                <div
-                                                    className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${isEnabled
-                                                        ? "bg-primary text-white"
-                                                        : "bg-content3 text-foreground/50"
-                                                        }`}
-                                                >
-                                                    <IconComponent size={14} />
-                                                </div>
-
-                                                {/* 工具信息 */}
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-xs font-medium ${isEnabled ? "text-foreground" : "text-foreground/70"}`}>
-                                                            {tool.name}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-[10px] text-foreground/40 line-clamp-1 mt-0.5">
-                                                        {tool.description}
-                                                    </div>
-                                                </div>
-
-                                                {/* 操作按钮 */}
-                                                <div className="flex items-center gap-2">
-                                                    {isHovered && (
-                                                        <Tooltip content="查看详情">
-                                                            <Button
-                                                                isIconOnly
-                                                                size="sm"
-                                                                variant="light"
-                                                                className="h-6 w-6 min-w-6"
-                                                            >
-                                                                <Info size={12} />
-                                                            </Button>
-                                                        </Tooltip>
-                                                    )}
-                                                    <Switch
-                                                        size="sm"
-                                                        isSelected={isEnabled}
-                                                        onValueChange={(val) => toggleTool(tool.name, val)}
-                                                        classNames={{
-                                                            wrapper: "group-data-[selected=true]:bg-primary",
-                                                        }}
-                                                    />
-                                                </div>
+                            }
+                        >
+                            <div className="p-5">
+                                <div className="space-y-4">
+                                    {availableTools.map((cat) => (
+                                        <div key={cat.category}>
+                                            <div className="flex items-center gap-2 mb-2 px-1">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-primary/60" />
+                                                <span className="text-[10px] font-semibold text-foreground/40 uppercase tracking-wider">
+                                                    {cat.category}
+                                                </span>
                                             </div>
-                                        );
-                                    })}
+                                            <div className="space-y-1.5">
+                                                {cat.tools.map((tool) => {
+                                                    const isEnabled = enabledTools.includes(tool.name);
+                                                    const isHovered = hoveredTool === tool.name;
+                                                    const IconComponent = toolIcons[tool.name] || Plus;
+
+                                                    return (
+                                                        <div
+                                                            key={tool.name}
+                                                            className={`group relative flex items-center gap-3 p-2.5 rounded-lg border transition-all duration-200 cursor-pointer ${isEnabled
+                                                                ? "border-primary/30 bg-primary/5"
+                                                                : "border-divider hover:border-primary/20 hover:bg-content2/50"
+                                                                }`}
+                                                            onMouseEnter={() => setHoveredTool(tool.name)}
+                                                            onMouseLeave={() => setHoveredTool(null)}
+                                                        >
+                                                            {/* 工具图标 */}
+                                                            <div
+                                                                className={`h-8 w-8 rounded-lg flex items-center justify-center transition-colors ${isEnabled
+                                                                    ? "bg-primary text-white"
+                                                                    : "bg-content3 text-foreground/50"
+                                                                    }`}
+                                                            >
+                                                                <IconComponent size={14} />
+                                                            </div>
+
+                                                            {/* 工具信息 */}
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className={`text-xs font-medium ${isEnabled ? "text-foreground" : "text-foreground/70"}`}>
+                                                                        {tool.name}
+                                                                    </span>
+                                                                </div>
+                                                                <div className="text-[10px] text-foreground/40 line-clamp-1 mt-0.5">
+                                                                    {tool.description}
+                                                                </div>
+                                                            </div>
+
+                                                            {/* 操作按钮 */}
+                                                            <div className="flex items-center gap-2">
+                                                                {isHovered && (
+                                                                    <Tooltip content="查看详情">
+                                                                        <Button
+                                                                            isIconOnly
+                                                                            size="sm"
+                                                                            variant="light"
+                                                                            className="h-6 w-6 min-w-6"
+                                                                        >
+                                                                            <Info size={12} />
+                                                                        </Button>
+                                                                    </Tooltip>
+                                                                )}
+                                                                <Switch
+                                                                    size="sm"
+                                                                    isSelected={isEnabled}
+                                                                    onValueChange={(val) => toggleTool(tool.name, val)}
+                                                                    classNames={{
+                                                                        wrapper: "group-data-[selected=true]:bg-primary",
+                                                                    }}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
-                        ))}
-                    </div>
+                        </Tab>
+                        <Tab
+                            key="mcp"
+                            title={
+                                <div className="flex items-center gap-2">
+                                    <Server size={14} />
+                                    <span>MCP 工具</span>
+                                    <Chip size="sm" variant="flat" className="h-4 text-[10px] bg-content3/50">
+                                        {mcpServers.length}
+                                    </Chip>
+                                </div>
+                            }
+                        >
+                            <div className="p-5">
+                                <div className="flex items-center justify-between mb-3 px-1">
+                                    <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">已连接的服务器</span>
+                                    <Button
+                                        size="sm"
+                                        variant="flat"
+                                        isIconOnly
+                                        className="h-6 w-6 bg-blue-500/10 hover:bg-blue-500/20 text-blue-600"
+                                        onPress={handleAddMCPServer}
+                                    >
+                                        <Plus size={14} />
+                                    </Button>
+                                </div>
+
+                                <div className="text-[10px] text-foreground/50 mb-4 px-1 leading-relaxed">
+                                    通过 Model Context Protocol 协议接入外部工具服务器。
+                                </div>
+
+                                {mcpServers.length === 0 ? (
+                                    <div
+                                        className="group flex flex-col items-center justify-center py-6 px-4 rounded-xl border-1 border-dashed border-divider hover:border-blue-400/50 hover:bg-blue-500/[0.02] cursor-pointer transition-all"
+                                        onClick={handleAddMCPServer}
+                                    >
+                                        <Server size={14} className="text-foreground/20 group-hover:text-blue-500/40 mb-1.5 transition-colors" />
+                                        <div className="text-[10px] text-foreground/40 group-hover:text-blue-500/60 font-medium">配置 MCP 服务器</div>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        {mcpServers.map((server) => (
+                                            <div
+                                                key={server.id}
+                                                className="group relative flex items-center gap-3 p-3 rounded-xl bg-content2/30 border border-transparent hover:border-blue-500/30 hover:bg-white hover:shadow-sm transition-all duration-200"
+                                            >
+                                                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                    <Link size={14} className="text-blue-500" />
+                                                </div>
+
+                                                <div className="flex-1 min-w-0">
+                                                    <div className="flex items-center gap-1.5 mb-0.5">
+                                                        <span className="text-[11px] font-bold text-foreground truncate">{server.name}</span>
+                                                        <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                                                    </div>
+                                                    <div className="text-[9px] text-foreground/40 font-mono truncate">
+                                                        {server.url}
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Button
+                                                        isIconOnly
+                                                        size="sm"
+                                                        variant="light"
+                                                        className="h-6 w-6 min-w-0 text-foreground/40 hover:text-blue-600"
+                                                        onPress={() => handleEditMCPServer(server)}
+                                                    >
+                                                        <Settings size={12} />
+                                                    </Button>
+                                                    <Button
+                                                        isIconOnly
+                                                        size="sm"
+                                                        variant="light"
+                                                        className="h-6 w-6 min-w-0 text-foreground/40 hover:text-danger"
+                                                        onPress={() => handleDeleteMCPServer(server.id)}
+                                                    >
+                                                        <Trash2 size={12} />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        </Tab>
+                    </Tabs>
                 </div>
             </ScrollShadow>
 
@@ -524,6 +649,83 @@ export function AgentConfigPanel({
                                     className="shadow-md shadow-primary/20"
                                 >
                                     {editingVar ? "保存修改" : "添加变量"}
+                                </Button>
+                            </ModalFooter>
+                        </>
+                    )}
+                </ModalContent>
+            </Modal>
+
+            {/* MCP Server Modal */}
+            <Modal isOpen={isMCPOpen} onOpenChange={onMCPOpenChange} size="md" backdrop="blur">
+                <ModalContent>
+                    {(onClose) => (
+                        <>
+                            <ModalHeader className="flex items-center gap-3 pb-2 border-b border-divider/50">
+                                <div className="h-10 w-10 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md">
+                                    <Server size={18} className="text-white" />
+                                </div>
+                                <div>
+                                    <div className="text-base font-bold">
+                                        {editingMCPServer ? "编辑 MCP 服务器" : "配置 MCP 服务器"}
+                                    </div>
+                                    <div className="text-[11px] text-foreground/50 font-normal">
+                                        Model Context Protocol (MCP) 外部工具集成
+                                    </div>
+                                </div>
+                            </ModalHeader>
+                            <ModalBody className="py-6 px-6 gap-6">
+                                <section className="space-y-4">
+                                    <Input
+                                        label="服务器名称"
+                                        labelPlacement="outside"
+                                        placeholder="例如：Code Executor"
+                                        variant="bordered"
+                                        size="md"
+                                        value={mcpName}
+                                        onValueChange={setMcpName}
+                                        classNames={{
+                                            inputWrapper: "bg-content2/30 border-divider",
+                                            label: "text-xs font-bold"
+                                        }}
+                                    />
+                                    <Input
+                                        label="服务器 URL"
+                                        labelPlacement="outside"
+                                        placeholder="HTTP 或 SSE 协议地址 (e.g. http://.../sse)"
+                                        variant="bordered"
+                                        size="md"
+                                        value={mcpUrl}
+                                        onValueChange={setMcpUrl}
+                                        classNames={{
+                                            inputWrapper: "bg-content2/30 border-divider",
+                                            input: "font-mono text-xs",
+                                            label: "text-xs font-bold"
+                                        }}
+                                        startContent={<Link size={14} className="text-foreground/30" />}
+                                    />
+                                    <div className="bg-blue-500/5 p-4 rounded-xl border border-blue-500/10">
+                                        <div className="flex items-center gap-2 mb-2 text-blue-600">
+                                            <Info size={14} />
+                                            <span className="text-[11px] font-bold">MCP 协议说明</span>
+                                        </div>
+                                        <div className="text-[10px] text-blue-600/70 leading-relaxed">
+                                            MCP 服务器提供了一组可以通过 LLM 调用的工具。配置完成后，Agent 会自动请求服务器获取工具列表，并尝试与这些工具进行交互。支持标准 MCP HTTP 传输协议。
+                                        </div>
+                                    </div>
+                                </section>
+                            </ModalBody>
+                            <ModalFooter className="border-t border-divider/50">
+                                <Button variant="flat" onPress={onClose} className="font-bold text-xs">
+                                    取消
+                                </Button>
+                                <Button
+                                    color="primary"
+                                    onPress={handleSaveMCPServer}
+                                    isDisabled={!mcpName || !mcpUrl}
+                                    className="font-bold text-xs shadow-md shadow-primary/20"
+                                >
+                                    {editingMCPServer ? "保存更改" : "添加连接"}
                                 </Button>
                             </ModalFooter>
                         </>

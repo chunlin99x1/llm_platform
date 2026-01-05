@@ -162,6 +162,10 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     setRunOutput("");
     setRunError(null);
     setToolTraces([]);
+
+    // 防御性处理：防止 React 事件对象被当作输入变量传入导致的循环引用序列化错误
+    const cleanInputs = (inputs && typeof inputs === 'object' && !('nativeEvent' in inputs) && !('target' in inputs)) ? inputs : undefined;
+
     try {
       if (app?.mode === "agent") {
         await appChatStream(
@@ -171,7 +175,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             session_id: previewSessionId,
             instructions: instructions,
             enabled_tools: enabledTools,
-            inputs: inputs,
+            inputs: cleanInputs,
           },
           (event) => {
             if (event.type === "text") {
@@ -340,6 +344,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             setRunInput={setRunInput}
             running={running}
             onRun={onRun}
+            variables={variables}
           />
         ) : (
           <div className="p-10 flex flex-col items-center justify-center gap-4 text-foreground h-full">
