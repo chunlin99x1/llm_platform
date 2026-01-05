@@ -52,6 +52,7 @@ import {
   MoreVertical,
   ChevronLeft,
   Share2,
+  AlertCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
@@ -159,6 +160,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
 
   const [runInput, setRunInput] = useState("介绍一下你自己");
   const [runOutput, setRunOutput] = useState("");
+  const [runError, setRunError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
   const [activeTab, setActiveTab] = useState("orchestrate");
@@ -250,6 +252,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   async function onRun() {
     setRunning(true);
     setRunOutput("");
+    setRunError(null);
     setToolTraces([]);
     try {
       if (app?.mode === "agent") {
@@ -267,6 +270,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             setToolTraces((prev) =>
               prev.map(t => t.id === event.id ? { ...t, result: event.result } : t)
             );
+          } else if (event.type === "error") {
+            setRunError(event.content);
           }
         });
       } else {
@@ -274,7 +279,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
         setRunOutput(resp.output);
       }
     } catch (e) {
-      setRunOutput("Error: " + (e instanceof Error ? e.message : String(e)));
+      setRunError(e instanceof Error ? e.message : String(e));
     } finally {
       setRunning(false);
     }
@@ -458,6 +463,18 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                         <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-foreground">
                           {runOutput}
                         </div>
+                        {runError && (
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <AlertCircle size={14} className="text-danger" />
+                              <span className="text-[9px] font-bold text-danger uppercase tracking-widest">Error</span>
+                              <Divider className="flex-1 ml-2" />
+                            </div>
+                            <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-danger">
+                              {runError}
+                            </div>
+                          </div>
+                        )}
                         {toolTraces.length > 0 && (
                           <div className="mt-2">
                             <Accordion
@@ -501,6 +518,17 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                             </Accordion>
                           </div>
                         )}
+                      </div>
+                    ) : runError ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle size={14} className="text-danger" />
+                          <span className="text-[9px] font-bold text-danger uppercase tracking-widest">Error</span>
+                          <Divider className="flex-1 ml-2" />
+                        </div>
+                        <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-danger">
+                          {runError}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">
@@ -734,6 +762,18 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                         <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-foreground-800">
                           {runOutput}
                         </div>
+                        {runError && (
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-1.5">
+                              <AlertCircle size={14} className="text-danger" />
+                              <span className="text-[9px] font-bold text-danger uppercase tracking-widest">Error</span>
+                              <Divider className="flex-1 ml-2" />
+                            </div>
+                            <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-danger">
+                              {runError}
+                            </div>
+                          </div>
+                        )}
                         {toolTraces.length > 0 && (
                           <div className="mt-2">
                             <Accordion
@@ -777,6 +817,17 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                             </Accordion>
                           </div>
                         )}
+                      </div>
+                    ) : runError ? (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <AlertCircle size={14} className="text-danger" />
+                          <span className="text-[9px] font-bold text-danger uppercase tracking-widest">Error</span>
+                          <Divider className="flex-1 ml-2" />
+                        </div>
+                        <div className="p-4 rounded-2xl bg-content1 border border-divider shadow-sm whitespace-pre-wrap leading-relaxed text-[13px] text-danger">
+                          {runError}
+                        </div>
                       </div>
                     ) : (
                       <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">
