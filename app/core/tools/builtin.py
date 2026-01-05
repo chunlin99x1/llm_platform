@@ -1,7 +1,9 @@
 """
-Built-in tools for the Agent system.
+内置工具模块
 
-This module contains custom-built tools that don't depend on external libraries.
+提供自定义的内置工具，包括计算器、时间获取、网页读取等。
+
+Author: chunlin
 """
 
 import ast

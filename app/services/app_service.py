@@ -1,8 +1,9 @@
 """
-App service for application management.
+应用服务模块
 
-This module handles business logic related to application creation,
-retrieval, and management.
+处理应用的创建、查询、管理等业务逻辑。
+
+Author: chunlin
 """
 
 from typing import List, Optional

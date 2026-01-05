@@ -1,11 +1,11 @@
 """
-Agent execution core module.
+Agent 执行核心模块
 
-This module provides the core Agent execution logic including synchronous
-and streaming invocation methods.
+提供流式 Agent 执行逻辑，支持工具调用。
+
+Author: chunlin
 """
 
-import asyncio
 import json
 from collections.abc import AsyncGenerator
 from typing import Any, Dict, List, Optional

@@ -1,8 +1,9 @@
 """
-Service layer for business logic.
+服务层模块
 
-This module provides service classes that encapsulate business logic,
-separating it from API route handlers.
+封装业务逻辑，将其与 API 路由分离。
+
+Author: chunlin
 """
 
 from .app_service import AppService

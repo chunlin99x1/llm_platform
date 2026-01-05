@@ -1,7 +1,9 @@
 """
-Tools module for LLMOps platform.
+工具模块
 
-This module provides tool management and registration for the Agent system.
+为 Agent 系统提供工具管理和注册功能。
+
+Author: chunlin
 """
 
 from .registry import TOOL_REGISTRY, get_all_tool_names, resolve_tools

@@ -1,8 +1,9 @@
 """
-Chat service for Agent chat functionality.
+聊天服务模块
 
-This module handles business logic related to chat message management
-and Agent execution.
+处理聊天消息的管理和 Agent 执行逻辑。
+
+Author: chunlin
 """
 
 from typing import AsyncGenerator, Dict, Any, List

@@ -1,7 +1,9 @@
 """
-Tool registry and resolution.
+工具注册表模块
 
-This module manages the registration and resolution of tools for the Agent system.
+管理工具的注册和解析，提供统一的工具访问接口。
+
+Author: chunlin
 """
 
 from collections.abc import Iterable

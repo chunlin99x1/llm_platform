@@ -1,8 +1,9 @@
 """
-Workflow service for workflow management and execution.
+工作流服务模块
 
-This module handles business logic related to workflow definition
-management and execution.
+处理工作流定义的管理和执行逻辑。
+
+Author: chunlin
 """
 
 from typing import Dict, Any, Optional

@@ -1,8 +1,9 @@
 """
-Apps router - Application and workflow management endpoints.
+应用路由模块
 
-This module provides API endpoints for application CRUD operations,
-workflow management, and app chat functionality.
+提供应用管理、工作流配置、Agent 聊天等 API 接口。
+
+Author: chunlin
 """
 
 import json

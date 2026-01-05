@@ -1,7 +1,9 @@
 """
-External tool integrations.
+外部工具集成模块
 
-This module contains tools that integrate with external libraries and services.
+集成第三方工具，包括 DuckDuckGo 搜索、Wikipedia、Python REPL、文件管理等。
+
+Author: chunlin
 """
 
 import os
