@@ -9,6 +9,14 @@ import {
     Play,
     Box,
     MessageSquare,
+    GitBranch,
+    Variable,
+    Code,
+    Globe,
+    Repeat,
+    FileCode,
+    Database,
+    HelpCircle,
 } from "lucide-react";
 import ReactFlow, {
     Background,
@@ -22,6 +30,11 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { nodeTypes } from "./node-components";
+import CustomEdge from "./custom-edge";
+
+const edgeTypes = {
+    custom: CustomEdge,
+};
 
 interface WorkflowCanvasProps {
     nodes: Node[];
@@ -31,6 +44,7 @@ interface WorkflowCanvasProps {
     onConnect: OnConnect;
     setSelectedId: (id: string) => void;
     addNode: (type: string) => void;
+    onInsertNode?: (edgeId: string, nodeType: string, position: { x: number; y: number }) => void;
 }
 
 export function WorkflowCanvas({
@@ -41,51 +55,165 @@ export function WorkflowCanvas({
     onConnect,
     setSelectedId,
     addNode,
+    onInsertNode,
 }: WorkflowCanvasProps) {
+    // 为每条边附加 onInsertNode 回调
+    const edgesWithData = edges.map(edge => ({
+        ...edge,
+        type: 'custom',
+        data: { ...edge.data, onInsertNode },
+    }));
     return (
-        <div className="flex-1 relative bg-[#f8fafc]">
+        <div className="flex-1 relative bg-[#F2F4F7]">
             <ReactFlow
                 nodes={nodes}
-                edges={edges}
+                edges={edgesWithData}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
                 nodeTypes={nodeTypes}
+                edgeTypes={edgeTypes}
                 onNodeClick={(_, node) => setSelectedId(node.id)}
                 fitView
-                className="bg-dot-pattern"
+                fitViewOptions={{ padding: 0.3, maxZoom: 0.8 }}
+                defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
                 snapToGrid
-                snapGrid={[20, 20]}
-                defaultEdgeOptions={{ type: "smoothstep", animated: true, style: { strokeWidth: 1.5 } }}
+                snapGrid={[10, 10]}
+                minZoom={0.1}
+                maxZoom={1.5}
+                defaultEdgeOptions={{
+                    type: "custom",
+                    animated: false,
+                    style: { stroke: '#94a3b8', strokeWidth: 2 }
+                }}
             >
-                <Background variant={BackgroundVariant.Dots} gap={20} size={1} color="#e2e8f0" />
-                <Controls className="bg-white border-divider shadow-md !left-4 !bottom-4 scale-75" />
+                <Background variant={BackgroundVariant.Dots} gap={16} size={1.5} color="#cbd5e1" />
+                <Controls className="!bg-white !border-divider !shadow-sm !rounded-lg !m-4" />
             </ReactFlow>
 
-            {/* Compact Floating Toolbox */}
-            <div className="absolute left-4 top-4 flex flex-col gap-2">
-                <Card className="bg-white/80 backdrop-blur border-divider p-1 shadow-lg">
-                    <div className="flex flex-col gap-1">
-                        {[
-                            { type: "start", icon: Play, label: "开始", color: "success" },
-                            { type: "llm", icon: Box, label: "LLM 节点", color: "primary" },
-                            { type: "answer", icon: MessageSquare, label: "回答节点", color: "warning" },
-                        ].map((item) => (
-                            <Tooltip key={item.type} content={item.label} placement="right">
-                                <Button
-                                    isIconOnly
-                                    size="sm"
-                                    variant="flat"
-                                    color={item.color as any}
-                                    className="h-8 w-8 bg-white border-divider transition-all active:scale-95"
-                                    onPress={() => addNode(item.type)}
-                                >
-                                    <item.icon size={16} />
-                                </Button>
-                            </Tooltip>
-                        ))}
+            {/* Dify-style Block Selector */}
+            <div className="absolute left-4 top-4">
+                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden w-[220px]">
+                    {/* Header */}
+                    <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50">
+                        <span className="text-[11px] font-semibold text-gray-600">添加节点</span>
                     </div>
-                </Card>
+
+                    {/* Scrollable Content */}
+                    <div className="p-2 max-h-[400px] overflow-y-auto space-y-3">
+                        {/* 基础 */}
+                        <div>
+                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
+                                基础
+                            </div>
+                            <div className="space-y-0.5">
+                                {[
+                                    { type: "start", label: "开始", desc: "工作流入口", color: "bg-blue-500" },
+                                    { type: "llm", label: "LLM", desc: "调用大语言模型", color: "bg-indigo-500" },
+                                    { type: "answer", label: "直接回复", desc: "输出结果给用户", color: "bg-orange-500" },
+                                    { type: "end", label: "结束", desc: "工作流结束", color: "bg-orange-500" },
+                                ].map((item) => (
+                                    <button
+                                        key={item.type}
+                                        onClick={() => addNode(item.type)}
+                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    >
+                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
+                                            <Play size={10} className="text-white" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
+                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 逻辑 */}
+                        <div>
+                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
+                                逻辑
+                            </div>
+                            <div className="space-y-0.5">
+                                {[
+                                    { type: "condition", label: "条件分支", desc: "IF/ELSE 逻辑", color: "bg-cyan-500", icon: GitBranch },
+                                    { type: "iteration", label: "迭代", desc: "循环处理列表", color: "bg-cyan-500", icon: Repeat },
+                                    { type: "variable", label: "变量赋值", desc: "设置变量值", color: "bg-blue-500", icon: Variable },
+                                ].map((item) => (
+                                    <button
+                                        key={item.type}
+                                        onClick={() => addNode(item.type)}
+                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    >
+                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
+                                            <item.icon size={10} className="text-white" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
+                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 转换 */}
+                        <div>
+                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
+                                转换
+                            </div>
+                            <div className="space-y-0.5">
+                                {[
+                                    { type: "code", label: "代码执行", desc: "运行 Python/JS", color: "bg-blue-600", icon: Code },
+                                    { type: "template", label: "模板转换", desc: "Jinja2 模板", color: "bg-blue-500", icon: FileCode },
+                                    { type: "http", label: "HTTP 请求", desc: "调用外部 API", color: "bg-violet-500", icon: Globe },
+                                ].map((item) => (
+                                    <button
+                                        key={item.type}
+                                        onClick={() => addNode(item.type)}
+                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    >
+                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
+                                            <item.icon size={10} className="text-white" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
+                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* 知识 */}
+                        <div>
+                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
+                                知识
+                            </div>
+                            <div className="space-y-0.5">
+                                {[
+                                    { type: "knowledge", label: "知识检索", desc: "从知识库检索", color: "bg-green-500", icon: Database },
+                                    { type: "classifier", label: "问题分类", desc: "对问题分类", color: "bg-green-500", icon: HelpCircle },
+                                ].map((item) => (
+                                    <button
+                                        key={item.type}
+                                        onClick={() => addNode(item.type)}
+                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
+                                    >
+                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
+                                            <item.icon size={10} className="text-white" />
+                                        </div>
+                                        <div className="flex-1 text-left">
+                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
+                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     );
