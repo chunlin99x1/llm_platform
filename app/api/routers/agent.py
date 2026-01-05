@@ -8,7 +8,8 @@ from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, System
 from tortoise.exceptions import IntegrityError
 from tortoise.transactions import in_transaction
 
-from app.core.agent import BUILTIN_TOOLS, agent_invoke, agent_stream
+from app.core.agent import agent_stream
+from app.core.tools.registry import BUILTIN_TOOLS
 from app.db.models import Agent, AgentMessage, AgentSession
 from app.schemas import (
     AgentChatRequest,
