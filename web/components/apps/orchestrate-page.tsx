@@ -40,6 +40,7 @@ import { AgentPreview } from "./agent-preview";
 import { WorkflowCanvas } from "./workflow-canvas";
 import { WorkflowConfigPanel } from "./workflow-config-panel";
 import { WorkflowPreview } from "./workflow-preview";
+import { useWorkflowShortcuts } from "./workflow-history";
 
 export default function OrchestratePage({ appId }: { appId: number }) {
   const [loading, setLoading] = useState(true);
@@ -70,6 +71,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [activeTab, setActiveTab] = useState("orchestrate");
   const [previewSessionId, setPreviewSessionId] = useState("");
   const [toolTraces, setToolTraces] = useState<AgentToolTrace[]>([]);
+  const [clipboard, setClipboard] = useState<Node | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -144,7 +146,57 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     setSelectedId(id);
   }
 
-  async function onSave() {
+  // 快捷键回调函数
+  const handleUndo = useCallback(() => {
+    // TODO: 集成 useWorkflowHistory
+    console.log("Undo");
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    console.log("Redo");
+  }, []);
+
+  const handleCopy = useCallback(() => {
+    if (selectedNode) {
+      setClipboard(JSON.parse(JSON.stringify(selectedNode)));
+      console.log("Copied node:", selectedNode.id);
+    }
+  }, [selectedNode]);
+
+  const handlePaste = useCallback(() => {
+    if (clipboard) {
+      const newId = `${clipboard.type}_${Date.now()}`;
+      const newNode: Node<any> = {
+        ...clipboard,
+        id: newId,
+        position: {
+          x: clipboard.position.x + 50,
+          y: clipboard.position.y + 50,
+        },
+        data: { ...clipboard.data, label: `${clipboard.data?.label || clipboard.type} (复制)` },
+      };
+      setNodes((nds) => nds.concat(newNode));
+      setSelectedId(newId);
+      console.log("Pasted node:", newId);
+    }
+  }, [clipboard, setNodes]);
+
+  const handleDelete = useCallback(() => {
+    if (selectedId) {
+      setNodes((nds) => nds.filter((n) => n.id !== selectedId));
+      setEdges((eds) => eds.filter((e) => e.source !== selectedId && e.target !== selectedId));
+      setSelectedId("");
+      console.log("Deleted node:", selectedId);
+    }
+  }, [selectedId, setNodes, setEdges]);
+
+  const handleSelectAll = useCallback(() => {
+    // 选中所有节点
+    console.log("Select all");
+  }, []);
+
+  // 保存函数
+  const handleSave = useCallback(async () => {
     setSaving(true);
     try {
       const graphPayload =
@@ -157,7 +209,19 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     } finally {
       setSaving(false);
     }
-  }
+  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, nodes, edges]);
+
+  // 注册快捷键
+  useWorkflowShortcuts({
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onDelete: handleDelete,
+    onSelectAll: handleSelectAll,
+    onSave: handleSave,
+    enabled: app?.mode === "workflow" && activeTab === "orchestrate",
+  });
 
   async function onRun(inputs?: Record<string, any>) {
     setRunning(true);
@@ -283,7 +347,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
               size="sm"
               startContent={<Save size={12} />}
               isLoading={saving}
-              onPress={onSave}
+              onPress={handleSave}
               className="font-bold shadow-md shadow-primary/20 h-8 text-[11px]"
             >
               发布更新
