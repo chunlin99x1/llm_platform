@@ -52,7 +52,11 @@ import {
     Server,
     Link,
 } from "lucide-react";
-import type { ToolCategory, PromptVariable } from "@/lib/types";
+import {
+    PromptVariable,
+    ToolCategory,
+    MCPServer,
+} from "@/lib/types";
 
 interface AgentConfigPanelProps {
     instructions: string;
@@ -61,7 +65,9 @@ interface AgentConfigPanelProps {
     setEnabledTools: (value: string[] | ((prev: string[]) => string[])) => void;
     availableTools: ToolCategory[];
     variables: PromptVariable[];
-    setVariables: (value: PromptVariable[]) => void;
+    setVariables: (vars: PromptVariable[]) => void;
+    mcpServers: MCPServer[];
+    setMcpServers: React.Dispatch<React.SetStateAction<MCPServer[]>>;
 }
 
 // 工具图标映射
@@ -87,6 +93,8 @@ export function AgentConfigPanel({
     availableTools,
     variables,
     setVariables,
+    mcpServers,
+    setMcpServers,
 }: AgentConfigPanelProps) {
     const [hoveredTool, setHoveredTool] = useState<string | null>(null);
 
@@ -97,12 +105,9 @@ export function AgentConfigPanel({
     const [varName, setVarName] = useState("");
     const [varType, setVarType] = useState<"string" | "number" | "select">("string");
 
-    // MCP Server State (UI Prototype)
+    // MCP Server State
     const { isOpen: isMCPOpen, onOpen: onMCPOpen, onOpenChange: onMCPOpenChange } = useDisclosure();
-    const [mcpServers, setMcpServers] = useState<any[]>([
-        { id: "1", name: "Custom Python Tools", url: "http://localhost:8000/mcp", status: "connected" }
-    ]);
-    const [editingMCPServer, setEditingMCPServer] = useState<any>(null);
+    const [editingMCPServer, setEditingMCPServer] = useState<MCPServer | null>(null);
     const [mcpName, setMcpName] = useState("");
     const [mcpUrl, setMcpUrl] = useState("");
 
@@ -173,7 +178,7 @@ export function AgentConfigPanel({
         onMCPOpen();
     };
 
-    const handleEditMCPServer = (server: any) => {
+    const handleEditMCPServer = (server: MCPServer) => {
         setEditingMCPServer(server);
         setMcpName(server.name);
         setMcpUrl(server.url);
@@ -182,12 +187,14 @@ export function AgentConfigPanel({
 
     const handleSaveMCPServer = () => {
         if (!mcpName || !mcpUrl) return;
-        const newServer = {
-            id: editingMCPServer?.id || Date.now().toString(),
+
+        const newServer: MCPServer = {
+            id: editingMCPServer?.id || Math.random().toString(36).substring(7),
             name: mcpName,
             url: mcpUrl,
             status: "connected"
         };
+
         if (editingMCPServer) {
             setMcpServers(mcpServers.map(s => s.id === editingMCPServer.id ? newServer : s));
         } else {
@@ -233,6 +240,27 @@ export function AgentConfigPanel({
                         </div>
                     </div>
                 </div>
+
+                <section className="flex flex-col gap-3 p-4">
+                    <header className="flex items-center justify-between">
+                        <label className="text-[10px] font-black uppercase tracking-wide flex items-center gap-1.5">
+                            <Terminal size={12} /> 系统指令
+                        </label>
+                    </header>
+                    <Textarea
+                        variant="bordered"
+                        placeholder="你是一个专业的 AI 助手..."
+                        minRows={12}
+                        value={instructions}
+                        onValueChange={setInstructions}
+                        classNames={{ input: "text-[11px] leading-relaxed font-mono", inputWrapper: "p-2" }}
+                    />
+                    <p className="text-[9px] text-foreground leading-tight">
+                        编写详细的指令来定义智能体的角色、目标和行为准则。
+                    </p>
+                </section>
+
+                <Divider className="opacity-50" />
 
                 {/* 变量设置 (New Section) */}
                 <div className="p-5 border-b border-divider">

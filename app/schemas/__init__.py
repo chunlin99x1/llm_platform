@@ -55,6 +55,7 @@ class AgentChatRequest(BaseModel):
     input: str
     instructions: Optional[str] = None
     enabled_tools: Optional[List[str]] = None
+    mcp_servers: Optional[List[Dict[str, Any]]] = None
     inputs: Dict[str, Any] = Field(default_factory=dict)
 
 

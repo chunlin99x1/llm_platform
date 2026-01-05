@@ -89,6 +89,7 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
     # Use provided configuration or fall back to saved configuration
     instructions = payload.instructions if payload.instructions is not None else wf.graph.get("instructions", "")
     enabled_tools = payload.enabled_tools if payload.enabled_tools is not None else wf.graph.get("enabled_tools", [])
+    mcp_servers = payload.mcp_servers if payload.mcp_servers is not None else wf.graph.get("mcp_servers", [])
 
     # Load chat history
     session_id = payload.session_id or "preview_default"
@@ -102,7 +103,8 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
             instructions=instructions,
             enabled_tools=enabled_tools,
             history=history,
-            inputs=payload.inputs
+            inputs=payload.inputs,
+            mcp_servers=mcp_servers
         ):
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         

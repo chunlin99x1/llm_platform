@@ -31,7 +31,7 @@ import {
 import "reactflow/dist/style.css";
 
 import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChatStream, listTools } from "@/lib/api";
-import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable } from "@/lib/types";
+import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 // Import extracted components
@@ -58,6 +58,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [instructions, setInstructions] = useState("");
   const [enabledTools, setEnabledTools] = useState<string[]>([]);
   const [variables, setVariables] = useState<PromptVariable[]>([]);
+  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) || null, [nodes, selectedId]);
 
@@ -88,6 +89,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           setInstructions(g.instructions || "");
           setEnabledTools(g.enabled_tools || []);
           setVariables((g.prompt_variables as PromptVariable[]) || []);
+          setMcpServers((g.mcp_servers as MCPServer[]) || []);
         } else {
           const g = (wfData.graph || {}) as WorkflowGraph;
           const loadedNodes = ((g.nodes || []) as Node[]).map((n) => ({
@@ -147,7 +149,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     try {
       const graphPayload =
         app?.mode === "agent"
-          ? { instructions, enabled_tools: enabledTools, prompt_variables: variables }
+          ? { instructions, enabled_tools: enabledTools, prompt_variables: variables, mcp_servers: mcpServers }
           : { nodes, edges };
       await updateWorkflow(appId, { graph: graphPayload });
     } catch (e) {
@@ -175,6 +177,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             session_id: previewSessionId,
             instructions: instructions,
             enabled_tools: enabledTools,
+            mcp_servers: mcpServers,
             inputs: cleanInputs,
           },
           (event) => {
@@ -302,6 +305,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 availableTools={availableTools}
                 variables={variables}
                 setVariables={setVariables}
+                mcpServers={mcpServers}
+                setMcpServers={setMcpServers}
               />
               <AgentPreview
                 runOutput={runOutput}

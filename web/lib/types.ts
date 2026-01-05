@@ -63,11 +63,19 @@ export type PromptVariable = {
   max_length?: number;
 };
 
+export type MCPServer = {
+  id: string;
+  name: string;
+  url: string;
+  status?: "connected" | "disconnected" | "error";
+};
+
 export type AgentChatRequest = {
   session_id?: string;
   input: string;
   instructions?: string;
   enabled_tools?: string[];
+  mcp_servers?: MCPServer[];
   inputs?: Record<string, unknown>;
 };
 
