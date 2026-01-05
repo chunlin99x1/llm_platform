@@ -98,15 +98,17 @@ class ChatService:
         user_input: str,
         instructions: str,
         enabled_tools: List[str],
-        history: List[BaseMessage]
+        history: List[BaseMessage],
+        inputs: Dict[str, Any] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process agent chat with streaming response.
         
         This method:
-        1. Saves user message
-        2. Streams agent response
-        3. Persists intermediate messages (AI/tool)
+        1. Replace variables in instructions
+        2. Saves user message
+        3. Streams agent response
+        4. Persists intermediate messages (AI/tool)
         
         Args:
             session_id: Chat session ID
@@ -114,10 +116,15 @@ class ChatService:
             instructions: System instructions
             enabled_tools: List of enabled tool names
             history: Chat history as LangChain messages
+            inputs: Optional variable inputs for substitution
             
         Yields:
             Event dictionaries for streaming response
         """
+        # 0. Replace variables in instructions
+        if inputs:
+            for key, value in inputs.items():
+                instructions = instructions.replace(f"{{{{{key}}}}}", str(value))
         # 1. Save user message
         await ChatService.save_chat_message(session_id, "user", user_input)
         

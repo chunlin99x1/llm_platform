@@ -54,11 +54,21 @@ export type AgentToolTrace = {
   result: string;
 };
 
+export type PromptVariable = {
+  key: string;
+  name: string;
+  type: "string" | "number" | "select";
+  required?: boolean;
+  options?: string[];
+  max_length?: number;
+};
+
 export type AgentChatRequest = {
   session_id?: string;
   input: string;
   instructions?: string;
   enabled_tools?: string[];
+  inputs?: Record<string, unknown>;
 };
 
 export type AgentChatResponse = {

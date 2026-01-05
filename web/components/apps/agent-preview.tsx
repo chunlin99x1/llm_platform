@@ -3,15 +3,19 @@
 import {
     Button,
     Input,
+    Accordion,
+    AccordionItem,
 } from "@heroui/react";
 import {
     Play,
     ChevronRight,
     Activity,
     MessageSquare,
+    Variable,
 } from "lucide-react";
 import { MessageDisplay } from "./message-display";
-import type { AgentToolTrace } from "@/lib/types";
+import type { AgentToolTrace, PromptVariable } from "@/lib/types";
+import { useState } from "react";
 
 interface AgentPreviewProps {
     runOutput: string;
@@ -20,7 +24,8 @@ interface AgentPreviewProps {
     runInput: string;
     setRunInput: (value: string) => void;
     running: boolean;
-    onRun: () => void;
+    onRun: (inputs?: Record<string, any>) => void;
+    variables: PromptVariable[];
 }
 
 export function AgentPreview({
@@ -31,7 +36,14 @@ export function AgentPreview({
     setRunInput,
     running,
     onRun,
+    variables,
 }: AgentPreviewProps) {
+    const [variableValues, setVariableValues] = useState<Record<string, string>>({});
+
+    const handleRun = () => {
+        onRun(variableValues);
+    };
+
     return (
         <div className="flex-1 flex flex-col bg-content2/5 p-6">
             <div className="max-w-4xl w-full h-full mx-auto flex flex-col bg-white border border-divider rounded-2xl shadow-xl overflow-hidden">
@@ -59,12 +71,50 @@ export function AgentPreview({
                         </div>
                     )}
                 </div>
-                <div className="p-4 border-t border-divider bg-white">
+                <div className="p-4 border-t border-divider bg-white flex flex-col gap-3">
+                    {/* Variable Inputs */}
+                    {variables.length > 0 && (
+                        <Accordion isCompact variant="light" className="px-0">
+                            <AccordionItem
+                                key="variables"
+                                aria-label="Variables"
+                                title={
+                                    <div className="flex items-center gap-2 text-xs text-foreground/60">
+                                        <Variable size={14} />
+                                        <span>变量参数 ({variables.length})</span>
+                                    </div>
+                                }
+                                classNames={{ content: "pb-2" }}
+                            >
+                                <div className="grid grid-cols-2 gap-3 p-1">
+                                    {variables.map((v) => (
+                                        <Input
+                                            key={v.key}
+                                            label={v.name}
+                                            placeholder={`输入 ${v.key} 的值...`}
+                                            labelPlacement="outside"
+                                            size="sm"
+                                            value={variableValues[v.key] || ""}
+                                            onValueChange={(val) =>
+                                                setVariableValues((prev) => ({ ...prev, [v.key]: val }))
+                                            }
+                                            classNames={{
+                                                label: "text-[10px] font-medium text-foreground/70",
+                                                input: "text-xs",
+                                                inputWrapper: "h-8 bg-content2/10 border-divider",
+                                            }}
+                                        />
+                                    ))}
+                                </div>
+                            </AccordionItem>
+                        </Accordion>
+                    )}
+
                     <Input
                         placeholder="向您的智能体发送指令..."
                         value={runInput}
                         onValueChange={setRunInput}
-                        onKeyDown={(e) => e.key === "Enter" && onRun()}
+                        onKeyDown={(e) => e.key === "Enter" && handleRun()}
                         startContent={<ChevronRight size={14} className="text-foreground/40" />}
                         endContent={
                             <Button
@@ -74,7 +124,7 @@ export function AgentPreview({
                                 variant="solid"
                                 className="h-7 w-7 rounded-lg"
                                 isLoading={running}
-                                onPress={onRun}
+                                onPress={handleRun}
                             >
                                 <Play size={12} fill="white" />
                             </Button>

@@ -31,7 +31,7 @@ import {
 import "reactflow/dist/style.css";
 
 import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChatStream, listTools } from "@/lib/api";
-import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace } from "@/lib/types";
+import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 // Import extracted components
@@ -57,6 +57,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   // Agent State
   const [instructions, setInstructions] = useState("");
   const [enabledTools, setEnabledTools] = useState<string[]>([]);
+  const [variables, setVariables] = useState<PromptVariable[]>([]);
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) || null, [nodes, selectedId]);
 
@@ -86,6 +87,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           const g = (wfData.graph || {}) as any;
           setInstructions(g.instructions || "");
           setEnabledTools(g.enabled_tools || []);
+          setVariables((g.prompt_variables as PromptVariable[]) || []);
         } else {
           const g = (wfData.graph || {}) as WorkflowGraph;
           const loadedNodes = ((g.nodes || []) as Node[]).map((n) => ({
@@ -144,7 +146,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     setSaving(true);
     try {
       const graphPayload =
-        app?.mode === "agent" ? { instructions, enabled_tools: enabledTools } : { nodes, edges };
+        app?.mode === "agent"
+          ? { instructions, enabled_tools: enabledTools, prompt_variables: variables }
+          : { nodes, edges };
       await updateWorkflow(appId, { graph: graphPayload });
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -153,7 +157,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     }
   }
 
-  async function onRun() {
+  async function onRun(inputs?: Record<string, any>) {
     setRunning(true);
     setRunOutput("");
     setRunError(null);
@@ -167,6 +171,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             session_id: previewSessionId,
             instructions: instructions,
             enabled_tools: enabledTools,
+            inputs: inputs,
           },
           (event) => {
             if (event.type === "text") {
@@ -291,6 +296,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 enabledTools={enabledTools}
                 setEnabledTools={setEnabledTools}
                 availableTools={availableTools}
+                variables={variables}
+                setVariables={setVariables}
               />
               <AgentPreview
                 runOutput={runOutput}
@@ -298,6 +305,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 toolTraces={toolTraces}
                 runInput={runInput}
                 setRunInput={setRunInput}
+                variables={variables}
                 running={running}
                 onRun={onRun}
               />
