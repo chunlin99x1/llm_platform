@@ -407,6 +407,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 nodes={nodes}
                 edges={edges}
                 setNodes={setNodes}
+                setEdges={setEdges}
                 selectedId={selectedId}
               />
             </div>

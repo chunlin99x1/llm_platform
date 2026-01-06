@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import {
     Button,
     Card,
@@ -29,7 +29,7 @@ import ReactFlow, {
     type OnConnect,
     type OnNodesChange,
     type OnEdgesChange,
-    useReactFlow,
+    type ReactFlowInstance,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { nodeTypes } from "./node-components";
@@ -71,6 +71,9 @@ export function WorkflowCanvas({
 
     // 连接验证
     const { isValidConnection } = useConnectionValidation(nodes, edges);
+
+    // ReactFlow 实例，用于坐标转换
+    const reactFlowInstance = useRef<ReactFlowInstance | null>(null);
 
     // 辅助线状态
     const [helpLines, setHelpLines] = useState<{ horizontal: number | null; vertical: number | null }>({
@@ -122,6 +125,9 @@ export function WorkflowCanvas({
                     type: "custom",
                     animated: false,
                     style: { stroke: '#94a3b8', strokeWidth: 2 }
+                }}
+                onInit={(instance) => {
+                    reactFlowInstance.current = instance;
                 }}
             >
                 <Background variant={BackgroundVariant.Dots} gap={16} size={1.5} color="#cbd5e1" />
@@ -179,7 +185,19 @@ export function WorkflowCanvas({
                 isOpen={canvasMenu.isOpen}
                 position={canvasMenu.position}
                 onClose={closeMenus}
-                onAddNode={(type, pos) => addNode(type, pos)}
+                onAddNode={(type, screenPos) => {
+                    // 屏幕坐标转换为画布坐标
+                    if (reactFlowInstance.current) {
+                        const flowPosition = reactFlowInstance.current.screenToFlowPosition({
+                            x: screenPos.x,
+                            y: screenPos.y,
+                        });
+                        addNode(type, flowPosition);
+                    } else {
+                        // 回退：使用原始位置
+                        addNode(type, screenPos);
+                    }
+                }}
             />
 
             {/* 快速缩放控制 */}
