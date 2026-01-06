@@ -130,12 +130,12 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     );
   }
 
-  function addNode(type: string) {
+  function addNode(type: string, position?: { x: number; y: number }) {
     const id = `${type}_${Date.now()}`;
     const newNode: Node<any> = {
       id,
       type,
-      position: { x: 100, y: 100 },
+      position: position || { x: 100, y: 100 },
       data: { label: type.charAt(0).toUpperCase() + type.slice(1) },
     };
     if (type === "llm") {
@@ -394,6 +394,12 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 onConnect={onConnect}
                 setSelectedId={setSelectedId}
                 addNode={addNode}
+                onCopyNode={handleCopy}
+                onDeleteNode={(id) => {
+                  setNodes((nds) => nds.filter((n) => n.id !== id));
+                  setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+                  if (selectedId === id) setSelectedId("");
+                }}
               />
               <WorkflowConfigPanel
                 selectedNode={selectedNode}

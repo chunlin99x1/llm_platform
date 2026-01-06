@@ -31,6 +31,7 @@ import ReactFlow, {
 import "reactflow/dist/style.css";
 import { nodeTypes } from "./node-components";
 import CustomEdge from "./custom-edge";
+import { NodeContextMenu, CanvasContextMenu, useContextMenu } from "./workflow-contextmenu";
 
 const edgeTypes = {
     custom: CustomEdge,
@@ -43,8 +44,10 @@ interface WorkflowCanvasProps {
     onEdgesChange: OnEdgesChange;
     onConnect: OnConnect;
     setSelectedId: (id: string) => void;
-    addNode: (type: string) => void;
+    addNode: (type: string, position?: { x: number; y: number }) => void;
     onInsertNode?: (edgeId: string, nodeType: string, position: { x: number; y: number }) => void;
+    onCopyNode?: (nodeId: string) => void;
+    onDeleteNode?: (nodeId: string) => void;
 }
 
 export function WorkflowCanvas({
@@ -56,13 +59,31 @@ export function WorkflowCanvas({
     setSelectedId,
     addNode,
     onInsertNode,
+    onCopyNode,
+    onDeleteNode,
 }: WorkflowCanvasProps) {
+    // 右键菜单状态
+    const { nodeMenu, canvasMenu, openNodeMenu, openCanvasMenu, closeMenus } = useContextMenu();
+
     // 为每条边附加 onInsertNode 回调
     const edgesWithData = edges.map(edge => ({
         ...edge,
         type: 'custom',
         data: { ...edge.data, onInsertNode },
     }));
+
+    // 处理节点右键
+    const handleNodeContextMenu = (event: React.MouseEvent, node: Node) => {
+        event.preventDefault();
+        openNodeMenu(node.id, node.type || '', event.clientX, event.clientY);
+    };
+
+    // 处理画布右键
+    const handlePaneContextMenu = (event: React.MouseEvent) => {
+        event.preventDefault();
+        openCanvasMenu(event.clientX, event.clientY);
+    };
+
     return (
         <div className="flex-1 relative bg-[#F2F4F7]">
             <ReactFlow
@@ -74,9 +95,11 @@ export function WorkflowCanvas({
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 onNodeClick={(_, node) => setSelectedId(node.id)}
+                onNodeContextMenu={handleNodeContextMenu}
+                onPaneContextMenu={handlePaneContextMenu}
                 fitView
-                fitViewOptions={{ padding: 0.3, maxZoom: 0.8 }}
-                defaultViewport={{ x: 0, y: 0, zoom: 0.7 }}
+                fitViewOptions={{ padding: 0.4, maxZoom: 0.9 }}
+                defaultViewport={{ x: 0, y: 0, zoom: 0.8 }}
                 snapToGrid
                 snapGrid={[10, 10]}
                 minZoom={0.1}
@@ -90,6 +113,25 @@ export function WorkflowCanvas({
                 <Background variant={BackgroundVariant.Dots} gap={16} size={1.5} color="#cbd5e1" />
                 <Controls className="!bg-white !border-divider !shadow-sm !rounded-lg !m-4" />
             </ReactFlow>
+
+            {/* 右键菜单 */}
+            <NodeContextMenu
+                isOpen={nodeMenu.isOpen}
+                position={nodeMenu.position}
+                nodeId={nodeMenu.nodeId}
+                nodeType={nodeMenu.nodeType}
+                onClose={closeMenus}
+                onCopy={(id) => onCopyNode?.(id)}
+                onDelete={(id) => onDeleteNode?.(id)}
+                onViewOutput={() => { }}
+                onRunFromHere={() => { }}
+            />
+            <CanvasContextMenu
+                isOpen={canvasMenu.isOpen}
+                position={canvasMenu.position}
+                onClose={closeMenus}
+                onAddNode={(type, pos) => addNode(type, pos)}
+            />
 
             {/* Dify-style Block Selector */}
             <div className="absolute left-4 top-4">
