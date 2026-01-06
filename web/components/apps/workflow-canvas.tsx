@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback } from "react";
 import {
     Button,
     Card,
@@ -21,17 +22,20 @@ import {
 import ReactFlow, {
     Background,
     Controls,
+    MiniMap,
     BackgroundVariant,
     type Edge,
     type Node,
     type OnConnect,
     type OnNodesChange,
     type OnEdgesChange,
+    useReactFlow,
 } from "reactflow";
 import "reactflow/dist/style.css";
 import { nodeTypes } from "./node-components";
 import CustomEdge from "./custom-edge";
 import { NodeContextMenu, CanvasContextMenu, useContextMenu } from "./workflow-contextmenu";
+import { useConnectionValidation } from "./workflow-utils";
 
 const edgeTypes = {
     custom: CustomEdge,
@@ -65,6 +69,15 @@ export function WorkflowCanvas({
     // 右键菜单状态
     const { nodeMenu, canvasMenu, openNodeMenu, openCanvasMenu, closeMenus } = useContextMenu();
 
+    // 连接验证
+    const { isValidConnection } = useConnectionValidation(nodes, edges);
+
+    // 辅助线状态
+    const [helpLines, setHelpLines] = useState<{ horizontal: number | null; vertical: number | null }>({
+        horizontal: null,
+        vertical: null,
+    });
+
     // 为每条边附加 onInsertNode 回调
     const edgesWithData = edges.map(edge => ({
         ...edge,
@@ -92,6 +105,7 @@ export function WorkflowCanvas({
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}
                 onConnect={onConnect}
+                isValidConnection={isValidConnection}
                 nodeTypes={nodeTypes}
                 edgeTypes={edgeTypes}
                 onNodeClick={(_, node) => setSelectedId(node.id)}
@@ -112,7 +126,42 @@ export function WorkflowCanvas({
             >
                 <Background variant={BackgroundVariant.Dots} gap={16} size={1.5} color="#cbd5e1" />
                 <Controls className="!bg-white !border-divider !shadow-sm !rounded-lg !m-4" />
+                <MiniMap
+                    className="!bg-white !border-divider !shadow-sm !rounded-lg"
+                    nodeColor={(node) => {
+                        const colors: Record<string, string> = {
+                            start: '#3b82f6',
+                            llm: '#6366f1',
+                            answer: '#f97316',
+                            condition: '#06b6d4',
+                            code: '#2563eb',
+                            http: '#8b5cf6',
+                            knowledge: '#22c55e',
+                            iteration: '#06b6d4',
+                            template: '#3b82f6',
+                            end: '#ef4444',
+                        };
+                        return colors[node.type || ''] || '#94a3b8';
+                    }}
+                    maskColor="rgba(0, 0, 0, 0.1)"
+                    pannable
+                    zoomable
+                />
             </ReactFlow>
+
+            {/* 辅助线 */}
+            {helpLines.horizontal !== null && (
+                <div
+                    className="absolute left-0 right-0 h-px bg-primary pointer-events-none z-50"
+                    style={{ top: helpLines.horizontal }}
+                />
+            )}
+            {helpLines.vertical !== null && (
+                <div
+                    className="absolute top-0 bottom-0 w-px bg-primary pointer-events-none z-50"
+                    style={{ left: helpLines.vertical }}
+                />
+            )}
 
             {/* 右键菜单 */}
             <NodeContextMenu
@@ -132,6 +181,55 @@ export function WorkflowCanvas({
                 onClose={closeMenus}
                 onAddNode={(type, pos) => addNode(type, pos)}
             />
+
+            {/* 快速缩放控制 */}
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2 bg-white rounded-full shadow-lg border border-gray-100 px-3 py-1.5">
+                <Tooltip content="缩小" placement="top">
+                    <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        className="h-7 w-7 min-w-7 text-foreground-500"
+                        onPress={() => {
+                            // 缩小通过 Controls 组件处理
+                        }}
+                    >
+                        <span className="text-lg font-bold">−</span>
+                    </Button>
+                </Tooltip>
+                <div className="text-[10px] font-medium text-foreground-500 min-w-[40px] text-center">
+                    80%
+                </div>
+                <Tooltip content="放大" placement="top">
+                    <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        className="h-7 w-7 min-w-7 text-foreground-500"
+                        onPress={() => {
+                            // 放大通过 Controls 组件处理
+                        }}
+                    >
+                        <span className="text-lg font-bold">+</span>
+                    </Button>
+                </Tooltip>
+                <div className="h-4 w-px bg-gray-200" />
+                <Tooltip content="适应画布" placement="top">
+                    <Button
+                        isIconOnly
+                        size="sm"
+                        variant="light"
+                        className="h-7 w-7 min-w-7 text-foreground-500"
+                        onPress={() => {
+                            // 适应画布通过 Controls 组件处理
+                        }}
+                    >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+                        </svg>
+                    </Button>
+                </Tooltip>
+            </div>
 
             {/* Dify-style Block Selector */}
             <div className="absolute left-4 top-4">

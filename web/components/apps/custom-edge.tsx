@@ -7,7 +7,7 @@ import {
     getBezierPath,
     type EdgeProps,
 } from "reactflow";
-import { Plus } from "lucide-react";
+import { Plus, Repeat, FileCode, Database, HelpCircle } from "lucide-react";
 import {
     Popover,
     PopoverTrigger,
@@ -25,16 +25,24 @@ import {
 } from "lucide-react";
 
 interface CustomEdgeProps extends EdgeProps {
-    onInsertNode?: (edgeId: string, nodeType: string, position: { x: number; y: number }) => void;
+    data?: {
+        onInsertNode?: (edgeId: string, nodeType: string, position: { x: number; y: number }) => void;
+        isExecuting?: boolean;
+        isSuccess?: boolean;
+        isError?: boolean;
+    };
 }
 
 const nodeOptions = [
-    { type: "llm", label: "LLM", icon: Box, color: "bg-indigo-500" },
-    { type: "condition", label: "条件分支", icon: GitBranch, color: "bg-cyan-500" },
-    { type: "code", label: "代码执行", icon: Code, color: "bg-blue-600" },
-    { type: "http", label: "HTTP 请求", icon: Globe, color: "bg-violet-500" },
-    { type: "variable", label: "变量赋值", icon: Variable, color: "bg-blue-500" },
-    { type: "answer", label: "回复", icon: MessageSquare, color: "bg-orange-500" },
+    { type: "llm", label: "LLM", icon: Box, color: "bg-indigo-500", desc: "调用大模型" },
+    { type: "condition", label: "条件分支", icon: GitBranch, color: "bg-cyan-500", desc: "条件判断" },
+    { type: "code", label: "代码执行", icon: Code, color: "bg-blue-600", desc: "执行代码" },
+    { type: "http", label: "HTTP 请求", icon: Globe, color: "bg-violet-500", desc: "发送请求" },
+    { type: "variable", label: "变量赋值", icon: Variable, color: "bg-blue-500", desc: "设置变量" },
+    { type: "iteration", label: "迭代", icon: Repeat, color: "bg-cyan-500", desc: "循环处理" },
+    { type: "template", label: "模板转换", icon: FileCode, color: "bg-blue-500", desc: "Jinja2 模板" },
+    { type: "knowledge", label: "知识检索", icon: Database, color: "bg-green-500", desc: "检索知识库" },
+    { type: "answer", label: "回复", icon: MessageSquare, color: "bg-orange-500", desc: "输出回复" },
 ];
 
 function CustomEdge({
@@ -80,6 +88,23 @@ function CustomEdge({
         setIsHovered(false);
     }, [data, id, labelX, labelY]);
 
+    // 确定边的颜色
+    let strokeColor = '#94a3b8';
+    let strokeWidth = 2;
+    let animated = false;
+
+    if (data?.isExecuting) {
+        strokeColor = '#6366f1';
+        animated = true;
+    } else if (data?.isSuccess) {
+        strokeColor = '#22c55e';
+    } else if (data?.isError) {
+        strokeColor = '#ef4444';
+    } else if (isHovered || isPopoverOpen) {
+        strokeColor = '#6366f1';
+        strokeWidth = 2.5;
+    }
+
     return (
         <>
             {/* Invisible wider path for easier hover detection */}
@@ -93,6 +118,20 @@ function CustomEdge({
                 className="cursor-pointer"
             />
 
+            {/* 动画流动效果 */}
+            {animated && (
+                <path
+                    d={edgePath}
+                    fill="none"
+                    strokeWidth={2}
+                    stroke={strokeColor}
+                    strokeDasharray="5 5"
+                    style={{
+                        animation: 'dashFlow 1s linear infinite',
+                    }}
+                />
+            )}
+
             {/* Visible edge */}
             <BaseEdge
                 id={id}
@@ -100,8 +139,8 @@ function CustomEdge({
                 markerEnd={markerEnd}
                 style={{
                     ...style,
-                    stroke: isHovered || isPopoverOpen ? '#6366f1' : '#94a3b8',
-                    strokeWidth: isHovered || isPopoverOpen ? 2.5 : 2,
+                    stroke: strokeColor,
+                    strokeWidth,
                     transition: 'stroke 0.2s, stroke-width 0.2s',
                 }}
             />
@@ -140,7 +179,7 @@ function CustomEdge({
                                 <Plus size={14} strokeWidth={2.5} />
                             </button>
                         </PopoverTrigger>
-                        <PopoverContent className="p-1 min-w-[160px]">
+                        <PopoverContent className="p-1 min-w-[180px] max-h-[300px] overflow-y-auto">
                             <div className="flex flex-col">
                                 <div className="px-2 py-1 text-[9px] font-bold text-foreground-400 uppercase tracking-wider">
                                     插入节点
@@ -150,13 +189,16 @@ function CustomEdge({
                                         key={node.type}
                                         size="sm"
                                         variant="light"
-                                        className="justify-start h-8 px-2"
+                                        className="justify-start h-9 px-2 group"
                                         onPress={() => handleInsertNode(node.type)}
                                     >
-                                        <div className={`w-5 h-5 rounded flex items-center justify-center ${node.color} mr-2`}>
+                                        <div className={`w-5 h-5 rounded flex items-center justify-center ${node.color} mr-2 group-hover:scale-110 transition-transform`}>
                                             <node.icon size={12} className="text-white" />
                                         </div>
-                                        <span className="text-[11px]">{node.label}</span>
+                                        <div className="flex flex-col items-start">
+                                            <span className="text-[11px] font-medium">{node.label}</span>
+                                            <span className="text-[9px] text-foreground-400">{node.desc}</span>
+                                        </div>
                                     </Button>
                                 ))}
                             </div>

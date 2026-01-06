@@ -405,6 +405,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 selectedNode={selectedNode}
                 updateSelectedNode={updateSelectedNode}
                 nodes={nodes}
+                edges={edges}
                 setNodes={setNodes}
                 selectedId={selectedId}
               />

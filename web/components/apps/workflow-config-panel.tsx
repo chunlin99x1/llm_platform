@@ -22,12 +22,14 @@ import {
     Globe,
     Variable,
 } from "lucide-react";
-import type { Node } from "reactflow";
+import type { Node, Edge } from "reactflow";
+import { VariableSelector } from "./workflow-variable-selector";
 
 interface WorkflowConfigPanelProps {
     selectedNode: Node | null;
     updateSelectedNode: (patch: Record<string, any>) => void;
     nodes: Node[];
+    edges: Edge[];
     setNodes: (nodes: Node[] | ((prev: Node[]) => Node[])) => void;
     selectedId: string;
 }
@@ -36,6 +38,7 @@ export function WorkflowConfigPanel({
     selectedNode,
     updateSelectedNode,
     nodes,
+    edges,
     setNodes,
     selectedId,
 }: WorkflowConfigPanelProps) {
@@ -122,21 +125,109 @@ export function WorkflowConfigPanel({
                         </section>
 
                         {selectedNode.type === "llm" && (
-                            <section className="flex flex-col gap-3">
-                                <div className="flex items-center justify-between px-1">
-                                    <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide">
-                                        <Terminal size={10} />
-                                        PROMPT
+                            <section className="flex flex-col gap-4">
+                                {/* 模型选择 */}
+                                <div className="flex flex-col gap-2">
+                                    <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide px-1">
+                                        <Box size={10} />
+                                        模型
                                     </div>
-                                    <Chip size="sm" variant="flat" color="primary" className="h-4 text-[8px] font-black">
-                                        GPT-4O
-                                    </Chip>
+                                    <Dropdown>
+                                        <DropdownTrigger>
+                                            <Button
+                                                variant="bordered"
+                                                size="sm"
+                                                className="justify-between h-9 text-[11px] w-full"
+                                            >
+                                                {selectedNode.data?.model || "gpt-4o"}
+                                                <span className="text-foreground-400">▼</span>
+                                            </Button>
+                                        </DropdownTrigger>
+                                        <DropdownMenu
+                                            aria-label="选择模型"
+                                            onAction={(key) => updateSelectedNode({ model: key as string })}
+                                        >
+                                            <DropdownItem key="gpt-4o">GPT-4o</DropdownItem>
+                                            <DropdownItem key="gpt-4o-mini">GPT-4o Mini</DropdownItem>
+                                            <DropdownItem key="gpt-4-turbo">GPT-4 Turbo</DropdownItem>
+                                            <DropdownItem key="gpt-3.5-turbo">GPT-3.5 Turbo</DropdownItem>
+                                            <DropdownItem key="claude-3-5-sonnet">Claude 3.5 Sonnet</DropdownItem>
+                                            <DropdownItem key="deepseek-chat">DeepSeek Chat</DropdownItem>
+                                        </DropdownMenu>
+                                    </Dropdown>
                                 </div>
 
-                                <div className="relative">
+                                {/* 参数设置 */}
+                                <div className="flex flex-col gap-3">
+                                    <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide px-1">
+                                        <Settings size={10} />
+                                        参数
+                                    </div>
+
+                                    {/* Temperature */}
+                                    <div className="px-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] text-foreground-600">Temperature</span>
+                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.temperature ?? 0.7}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="2"
+                                            step="0.1"
+                                            value={selectedNode.data?.temperature ?? 0.7}
+                                            onChange={(e) => updateSelectedNode({ temperature: parseFloat(e.target.value) })}
+                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
+                                            <span>精确</span>
+                                            <span>创意</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Max Tokens */}
+                                    <div className="px-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] text-foreground-600">Max Tokens</span>
+                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.maxTokens ?? 2048}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="256"
+                                            max="8192"
+                                            step="256"
+                                            value={selectedNode.data?.maxTokens ?? 2048}
+                                            onChange={(e) => updateSelectedNode({ maxTokens: parseInt(e.target.value) })}
+                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
+                                            <span>256</span>
+                                            <span>8192</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Prompt */}
+                                <div className="flex flex-col gap-2">
+                                    <div className="flex items-center justify-between px-1">
+                                        <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide">
+                                            <Terminal size={10} />
+                                            PROMPT
+                                        </div>
+                                        <VariableSelector
+                                            currentNodeId={selectedNode.id}
+                                            nodes={nodes}
+                                            edges={edges}
+                                            onSelect={(varRef) => {
+                                                const current = selectedNode.data?.prompt || "";
+                                                updateSelectedNode({ prompt: current + varRef });
+                                            }}
+                                        />
+                                    </div>
+
                                     <Textarea
                                         variant="bordered"
-                                        minRows={10}
+                                        minRows={8}
                                         placeholder="在此输入指令..."
                                         value={selectedNode.data?.prompt || ""}
                                         onValueChange={(v) => updateSelectedNode({ prompt: v })}
@@ -145,11 +236,9 @@ export function WorkflowConfigPanel({
                                 </div>
 
                                 <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
-                                    <div className="flex gap-2">
-                                        <div className="text-[10px] text-foreground-600 leading-tight">
-                                            提示：使用{" "}
-                                            <kbd className="bg-primary/10 text-primary font-bold px-1 rounded">{"{{input}}"}</kbd> 引用输入。
-                                        </div>
+                                    <div className="text-[10px] text-foreground-600 leading-tight">
+                                        点击 <Variable size={10} className="inline text-primary" /> 选择上游变量，格式：{" "}
+                                        <kbd className="bg-primary/10 text-primary font-bold px-1 rounded">{"{{node.output}}"}</kbd>
                                     </div>
                                 </div>
                             </section>
@@ -171,25 +260,146 @@ export function WorkflowConfigPanel({
 
                         {/* 条件分支节点配置 */}
                         {selectedNode.type === "condition" && (
-                            <section className="flex flex-col gap-3">
+                            <section className="flex flex-col gap-4">
                                 <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide px-1">
                                     <GitBranch size={10} />
                                     条件设置
                                 </div>
-                                <Textarea
-                                    label="条件表达式"
-                                    labelPlacement="outside"
-                                    variant="bordered"
-                                    minRows={3}
-                                    placeholder="例如: {{input.length}} > 10"
-                                    value={selectedNode.data?.condition || ""}
-                                    onValueChange={(v) => updateSelectedNode({ condition: v })}
-                                    classNames={{ input: "font-mono text-[11px]", label: "text-[10px]" }}
-                                />
-                                <div className="p-3 bg-purple-500/5 rounded-xl border border-purple-500/10">
-                                    <div className="text-[10px] text-foreground-600 leading-tight">
-                                        提示：条件为真时走 <kbd className="bg-purple-100 text-purple-700 px-1 rounded">True</kbd> 分支，
-                                        否则走 <kbd className="bg-gray-100 text-gray-700 px-1 rounded">False</kbd> 分支。
+
+                                {/* 可视化条件构建器 */}
+                                <div className="space-y-3">
+                                    {/* 条件 1 */}
+                                    <div className="p-3 bg-content2/50 rounded-xl border border-divider">
+                                        <div className="text-[9px] font-bold text-foreground-400 mb-2">IF</div>
+                                        <div className="flex items-center gap-2">
+                                            {/* 变量选择 */}
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-1 h-8 px-2 bg-content1 border border-divider rounded-lg">
+                                                    <VariableSelector
+                                                        currentNodeId={selectedNode.id}
+                                                        nodes={nodes}
+                                                        edges={edges}
+                                                        onSelect={(varRef) => updateSelectedNode({ conditionVar: varRef })}
+                                                    />
+                                                    <span className="text-[10px] font-mono text-foreground-600 truncate flex-1">
+                                                        {selectedNode.data?.conditionVar || "选择变量"}
+                                                    </span>
+                                                </div>
+                                            </div>
+
+                                            {/* 运算符 */}
+                                            <Dropdown>
+                                                <DropdownTrigger>
+                                                    <Button size="sm" variant="bordered" className="h-8 min-w-[60px] text-[10px] font-mono">
+                                                        {selectedNode.data?.conditionOp || "=="}
+                                                    </Button>
+                                                </DropdownTrigger>
+                                                <DropdownMenu
+                                                    aria-label="选择运算符"
+                                                    onAction={(key) => updateSelectedNode({ conditionOp: key as string })}
+                                                >
+                                                    <DropdownItem key="==">等于 ==</DropdownItem>
+                                                    <DropdownItem key="!=">不等于 !=</DropdownItem>
+                                                    <DropdownItem key=">">大于 &gt;</DropdownItem>
+                                                    <DropdownItem key="<">小于 &lt;</DropdownItem>
+                                                    <DropdownItem key=">=">大于等于 &gt;=</DropdownItem>
+                                                    <DropdownItem key="<=">小于等于 &lt;=</DropdownItem>
+                                                    <DropdownItem key="contains">包含</DropdownItem>
+                                                    <DropdownItem key="not contains">不包含</DropdownItem>
+                                                    <DropdownItem key="is empty">为空</DropdownItem>
+                                                    <DropdownItem key="is not empty">不为空</DropdownItem>
+                                                </DropdownMenu>
+                                            </Dropdown>
+
+                                            {/* 值 */}
+                                            <Input
+                                                size="sm"
+                                                variant="bordered"
+                                                placeholder="值"
+                                                value={selectedNode.data?.conditionValue || ""}
+                                                onValueChange={(v) => updateSelectedNode({ conditionValue: v })}
+                                                classNames={{ inputWrapper: "h-8 w-20", input: "text-[10px] font-mono" }}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    {/* 逻辑运算符 */}
+                                    <div className="flex items-center gap-2 px-3">
+                                        <div className="h-px flex-1 bg-divider" />
+                                        <Dropdown>
+                                            <DropdownTrigger>
+                                                <Button size="sm" variant="flat" className="h-6 text-[9px] font-bold">
+                                                    {selectedNode.data?.logicOp || "AND"}
+                                                </Button>
+                                            </DropdownTrigger>
+                                            <DropdownMenu
+                                                aria-label="选择逻辑运算符"
+                                                onAction={(key) => updateSelectedNode({ logicOp: key as string })}
+                                            >
+                                                <DropdownItem key="AND">AND</DropdownItem>
+                                                <DropdownItem key="OR">OR</DropdownItem>
+                                            </DropdownMenu>
+                                        </Dropdown>
+                                        <div className="h-px flex-1 bg-divider" />
+                                    </div>
+
+                                    {/* 条件 2 (可选) */}
+                                    <div className="p-3 bg-content2/30 rounded-xl border border-dashed border-divider">
+                                        <div className="flex items-center gap-2">
+                                            <div className="flex-1">
+                                                <div className="flex items-center gap-1 h-8 px-2 bg-content1 border border-divider rounded-lg">
+                                                    <VariableSelector
+                                                        currentNodeId={selectedNode.id}
+                                                        nodes={nodes}
+                                                        edges={edges}
+                                                        onSelect={(varRef) => updateSelectedNode({ conditionVar2: varRef })}
+                                                    />
+                                                    <span className="text-[10px] font-mono text-foreground-400 truncate flex-1">
+                                                        {selectedNode.data?.conditionVar2 || "+ 添加条件"}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                            {selectedNode.data?.conditionVar2 && (
+                                                <>
+                                                    <Dropdown>
+                                                        <DropdownTrigger>
+                                                            <Button size="sm" variant="bordered" className="h-8 min-w-[60px] text-[10px] font-mono">
+                                                                {selectedNode.data?.conditionOp2 || "=="}
+                                                            </Button>
+                                                        </DropdownTrigger>
+                                                        <DropdownMenu
+                                                            aria-label="选择运算符"
+                                                            onAction={(key) => updateSelectedNode({ conditionOp2: key as string })}
+                                                        >
+                                                            <DropdownItem key="==">等于 ==</DropdownItem>
+                                                            <DropdownItem key="!=">不等于 !=</DropdownItem>
+                                                            <DropdownItem key=">">大于 &gt;</DropdownItem>
+                                                            <DropdownItem key="<">小于 &lt;</DropdownItem>
+                                                        </DropdownMenu>
+                                                    </Dropdown>
+                                                    <Input
+                                                        size="sm"
+                                                        variant="bordered"
+                                                        placeholder="值"
+                                                        value={selectedNode.data?.conditionValue2 || ""}
+                                                        onValueChange={(v) => updateSelectedNode({ conditionValue2: v })}
+                                                        classNames={{ inputWrapper: "h-8 w-20", input: "text-[10px] font-mono" }}
+                                                    />
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 分支说明 */}
+                                <div className="flex gap-2">
+                                    <div className="flex-1 p-2 bg-green-50 rounded-lg border border-green-200">
+                                        <div className="text-[9px] font-bold text-green-700 mb-0.5">✓ True</div>
+                                        <div className="text-[8px] text-green-600">条件满足时执行</div>
+                                    </div>
+                                    <div className="flex-1 p-2 bg-gray-50 rounded-lg border border-gray-200">
+                                        <div className="text-[9px] font-bold text-gray-700 mb-0.5">✗ False</div>
+                                        <div className="text-[8px] text-gray-600">条件不满足时执行</div>
                                     </div>
                                 </div>
                             </section>
@@ -203,20 +413,31 @@ export function WorkflowConfigPanel({
                                         <Code size={10} />
                                         代码
                                     </div>
-                                    <Dropdown>
-                                        <DropdownTrigger>
-                                            <Button size="sm" variant="flat" className="h-6 text-[10px]">
-                                                {selectedNode.data?.language || "Python"}
-                                            </Button>
-                                        </DropdownTrigger>
-                                        <DropdownMenu
-                                            aria-label="语言选择"
-                                            onAction={(key) => updateSelectedNode({ language: key as string })}
-                                        >
-                                            <DropdownItem key="Python">Python</DropdownItem>
-                                            <DropdownItem key="JavaScript">JavaScript</DropdownItem>
-                                        </DropdownMenu>
-                                    </Dropdown>
+                                    <div className="flex items-center gap-1">
+                                        <VariableSelector
+                                            currentNodeId={selectedNode.id}
+                                            nodes={nodes}
+                                            edges={edges}
+                                            onSelect={(varRef) => {
+                                                const current = selectedNode.data?.code || "";
+                                                updateSelectedNode({ code: current + varRef });
+                                            }}
+                                        />
+                                        <Dropdown>
+                                            <DropdownTrigger>
+                                                <Button size="sm" variant="flat" className="h-6 text-[10px]">
+                                                    {selectedNode.data?.language || "Python"}
+                                                </Button>
+                                            </DropdownTrigger>
+                                            <DropdownMenu
+                                                aria-label="语言选择"
+                                                onAction={(key) => updateSelectedNode({ language: key as string })}
+                                            >
+                                                <DropdownItem key="Python">Python</DropdownItem>
+                                                <DropdownItem key="JavaScript">JavaScript</DropdownItem>
+                                            </DropdownMenu>
+                                        </Dropdown>
+                                    </div>
                                 </div>
                                 <Textarea
                                     variant="bordered"
@@ -229,7 +450,7 @@ export function WorkflowConfigPanel({
                                 <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
                                     <div className="text-[10px] text-foreground-600 leading-tight">
                                         使用 <kbd className="bg-emerald-100 text-emerald-700 px-1 rounded">return</kbd> 返回结果。
-                                        可通过 <kbd className="bg-emerald-100 text-emerald-700 px-1 rounded">{"{{input}}"}</kbd> 访问输入。
+                                        点击 <Variable size={10} className="inline text-primary" /> 插入上游变量。
                                     </div>
                                 </div>
                             </section>
