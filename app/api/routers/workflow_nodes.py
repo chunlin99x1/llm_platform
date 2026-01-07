@@ -96,6 +96,13 @@ NODE_TYPES = [
         description="使用 Jinja2 模板格式化文本"
     ),
     NodeTypeInfo(
+        type="extractor",
+        label="参数提取",
+        icon="file-search",
+        color="#a855f7",
+        description="使用 LLM 从文本中提取结构化参数"
+    ),
+    NodeTypeInfo(
         type="end",
         label="结束",
         icon="square",

@@ -52,6 +52,7 @@ interface WorkflowCanvasProps {
     onInsertNode?: (edgeId: string, nodeType: string, position: { x: number; y: number }) => void;
     onCopyNode?: (nodeId: string) => void;
     onDeleteNode?: (nodeId: string) => void;
+    nodeRunStatus?: Record<string, 'running' | 'success' | 'error'>;
 }
 
 export function WorkflowCanvas({
@@ -65,6 +66,7 @@ export function WorkflowCanvas({
     onInsertNode,
     onCopyNode,
     onDeleteNode,
+    nodeRunStatus = {},
 }: WorkflowCanvasProps) {
     // 右键菜单状态
     const { nodeMenu, canvasMenu, openNodeMenu, openCanvasMenu, closeMenus } = useContextMenu();
@@ -95,6 +97,15 @@ export function WorkflowCanvas({
             });
     }, []);
 
+    // 将运行状态注入到节点 data 中
+    const nodesWithStatus = nodes.map(node => ({
+        ...node,
+        data: {
+            ...node.data,
+            status: nodeRunStatus[node.id] || 'idle',
+        },
+    }));
+
     // 为每条边附加 onInsertNode 回调
     const edgesWithData = edges.map(edge => ({
         ...edge,
@@ -117,7 +128,7 @@ export function WorkflowCanvas({
     return (
         <div className="flex-1 relative bg-[#F2F4F7]">
             <ReactFlow
-                nodes={nodes}
+                nodes={nodesWithStatus}
                 edges={edgesWithData}
                 onNodesChange={onNodesChange}
                 onEdgesChange={onEdgesChange}

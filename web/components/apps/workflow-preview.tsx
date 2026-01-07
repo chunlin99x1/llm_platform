@@ -16,6 +16,8 @@ import {
 import { MessageDisplay } from "./message-display";
 import type { AgentToolTrace, PromptVariable } from "@/lib/types";
 import { useState } from "react";
+import type { Node } from "reactflow";
+import { CheckCircle2, XCircle, Loader2 } from "lucide-react";
 
 interface WorkflowPreviewProps {
     runOutput: string;
@@ -26,6 +28,8 @@ interface WorkflowPreviewProps {
     running: boolean;
     onRun: (inputs?: Record<string, any>) => void;
     variables: PromptVariable[];
+    nodeRunStatus?: Record<string, 'running' | 'success' | 'error'>;
+    nodes?: Node[];
 }
 
 export function WorkflowPreview({
@@ -37,6 +41,8 @@ export function WorkflowPreview({
     running,
     onRun,
     variables,
+    nodeRunStatus = {},
+    nodes = [],
 }: WorkflowPreviewProps) {
     const [variableValues, setVariableValues] = useState<Record<string, string>>({});
 
@@ -120,7 +126,31 @@ export function WorkflowPreview({
 
                     {/* Compact Chat Result */}
                     <div className="flex-1 flex flex-col bg-white overflow-hidden">
-                        <div className="flex-1 overflow-auto p-6 flex flex-col gap-6">
+                        <div className="flex-1 overflow-auto p-6 flex flex-col gap-4">
+                            {/* 节点执行日志 */}
+                            {Object.keys(nodeRunStatus).length > 0 && (
+                                <div className="border border-divider rounded-lg p-3 bg-content2/10">
+                                    <div className="text-[9px] font-bold text-foreground/50 uppercase tracking-widest mb-2">执行日志</div>
+                                    <div className="flex flex-col gap-1">
+                                        {nodes.filter(n => nodeRunStatus[n.id]).map((node) => {
+                                            const status = nodeRunStatus[node.id];
+                                            return (
+                                                <div key={node.id} className="flex items-center gap-2 text-[11px]">
+                                                    {status === 'running' && <Loader2 size={12} className="animate-spin text-primary" />}
+                                                    {status === 'success' && <CheckCircle2 size={12} className="text-success" />}
+                                                    {status === 'error' && <XCircle size={12} className="text-danger" />}
+                                                    <span className="font-medium">{node.data?.label || node.type}</span>
+                                                    <span className={`text-[9px] ${status === 'running' ? 'text-primary' : status === 'success' ? 'text-success' : 'text-danger'}`}>
+                                                        {status === 'running' ? '执行中...' : status === 'success' ? '完成' : '失败'}
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* 输出内容 */}
                             {runOutput || runError ? (
                                 <MessageDisplay
                                     output={runOutput}
@@ -129,13 +159,15 @@ export function WorkflowPreview({
                                     messageLabel="Output"
                                 />
                             ) : (
-                                <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">
-                                    <Terminal size={48} strokeWidth={1} />
-                                    <div className="text-center max-w-[200px]">
-                                        <div className="text-[11px] font-bold mb-1 uppercase tracking-wide">等待输入</div>
-                                        <p className="text-[10px] leading-tight italic">点击左侧按钮开始测试工作流...</p>
+                                !Object.keys(nodeRunStatus).length && (
+                                    <div className="flex h-full flex-col items-center justify-center text-foreground gap-4 opacity-30 select-none">
+                                        <Terminal size={48} strokeWidth={1} />
+                                        <div className="text-center max-w-[200px]">
+                                            <div className="text-[11px] font-bold mb-1 uppercase tracking-wide">等待输入</div>
+                                            <p className="text-[10px] leading-tight italic">点击左侧按钮开始测试工作流...</p>
+                                        </div>
                                     </div>
-                                </div>
+                                )
                             )}
                         </div>
                     </div>

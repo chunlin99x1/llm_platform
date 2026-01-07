@@ -72,6 +72,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [previewSessionId, setPreviewSessionId] = useState("");
   const [toolTraces, setToolTraces] = useState<AgentToolTrace[]>([]);
   const [clipboard, setClipboard] = useState<Node | null>(null);
+  // 节点运行状态: { nodeId: 'running' | 'success' | 'error' }
+  const [nodeRunStatus, setNodeRunStatus] = useState<Record<string, 'running' | 'success' | 'error'>>({});
 
   useEffect(() => {
     (async () => {
@@ -228,6 +230,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     setRunOutput("");
     setRunError(null);
     setToolTraces([]);
+    setNodeRunStatus({});
 
     // 防御性处理：防止 React 事件对象被当作输入变量传入导致的循环引用序列化错误
     const cleanInputs = (inputs && typeof inputs === 'object' && !('nativeEvent' in inputs) && !('target' in inputs)) ? inputs : undefined;
@@ -260,8 +263,60 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           }
         );
       } else {
-        const resp = await runWorkflow({ input: runInput, context: { app_id: appId } });
-        setRunOutput(resp.output);
+        // 工作流模式：使用流式 API
+        const response = await fetch('/api/workflow/run/stream', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            input: runInput,
+            context: { app_id: appId, ...cleanInputs }
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+
+        if (reader) {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            const text = decoder.decode(value);
+            const lines = text.split('\n');
+
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+
+                  if (data.event === 'node_started') {
+                    setNodeRunStatus((prev) => ({ ...prev, [data.node_id]: 'running' }));
+                  } else if (data.event === 'node_output') {
+                    // LLM 流式输出
+                    setRunOutput((prev) => prev + data.chunk);
+                  } else if (data.event === 'node_finished') {
+                    setNodeRunStatus((prev) => ({
+                      ...prev,
+                      [data.node_id]: data.status === 'success' ? 'success' : 'error'
+                    }));
+                  } else if (data.event === 'workflow_finished') {
+                    if (data.output) {
+                      setRunOutput(data.output);
+                    }
+                  } else if (data.event === 'error') {
+                    setRunError(data.message);
+                  }
+                } catch {
+                  // 忽略解析错误
+                }
+              }
+            }
+          }
+        }
       }
     } catch (e) {
       setRunError(e instanceof Error ? e.message : String(e));
@@ -400,6 +455,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                   setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
                   if (selectedId === id) setSelectedId("");
                 }}
+                nodeRunStatus={nodeRunStatus}
               />
               <WorkflowConfigPanel
                 selectedNode={selectedNode}
@@ -422,6 +478,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             running={running}
             onRun={onRun}
             variables={variables}
+            nodeRunStatus={nodeRunStatus}
+            nodes={nodes}
           />
         ) : (
           <div className="p-10 flex flex-col items-center justify-center gap-4 text-foreground h-full">
