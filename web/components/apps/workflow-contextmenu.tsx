@@ -114,24 +114,40 @@ interface CanvasContextMenuProps {
     position: ContextMenuPosition;
     onClose: () => void;
     onAddNode: (type: string, position: { x: number; y: number }) => void;
+    nodeTypes?: { type: string; label: string; icon: string; color: string }[];
 }
 
-const nodeTypes = [
-    { type: "start", label: "开始节点", icon: Play, color: "text-success" },
-    { type: "llm", label: "LLM 节点", icon: Box, color: "text-primary" },
-    { type: "answer", label: "回答节点", icon: MessageSquare, color: "text-warning" },
-    { type: "condition", label: "条件分支", icon: GitBranch, color: "text-purple-500" },
-    { type: "code", label: "代码执行", icon: Code, color: "text-emerald-500" },
-    { type: "http", label: "HTTP 请求", icon: Globe, color: "text-blue-500" },
-    { type: "variable", label: "变量赋值", icon: Variable, color: "text-amber-500" },
+// 默认节点类型（后端不可用时使用）
+const defaultNodeTypes = [
+    { type: "start", label: "开始节点", icon: "play", color: "text-success" },
+    { type: "llm", label: "LLM 节点", icon: "box", color: "text-primary" },
+    { type: "answer", label: "回答节点", icon: "message-square", color: "text-warning" },
+    { type: "condition", label: "条件分支", icon: "git-branch", color: "text-purple-500" },
+    { type: "code", label: "代码执行", icon: "code", color: "text-emerald-500" },
+    { type: "http", label: "HTTP 请求", icon: "globe", color: "text-blue-500" },
+    { type: "variable", label: "变量赋值", icon: "variable", color: "text-amber-500" },
 ];
+
+// 图标映射
+const iconMap: Record<string, any> = {
+    play: Play,
+    box: Box,
+    "message-square": MessageSquare,
+    "git-branch": GitBranch,
+    code: Code,
+    globe: Globe,
+    variable: Variable,
+};
 
 export function CanvasContextMenu({
     isOpen,
     position,
     onClose,
     onAddNode,
+    nodeTypes,
 }: CanvasContextMenuProps) {
+    const types = nodeTypes || defaultNodeTypes;
+
     if (!isOpen) return null;
 
     return (
@@ -144,19 +160,22 @@ export function CanvasContextMenu({
                 <div className="px-3 py-1.5 text-[9px] font-bold text-foreground-400 uppercase tracking-wider">
                     添加节点
                 </div>
-                {nodeTypes.map((node) => (
-                    <button
-                        key={node.type}
-                        className="w-full px-3 py-2 text-left text-[11px] hover:bg-content2 flex items-center gap-2 transition-colors"
-                        onClick={() => {
-                            onAddNode(node.type, position);
-                            onClose();
-                        }}
-                    >
-                        <node.icon size={12} className={node.color} />
-                        {node.label}
-                    </button>
-                ))}
+                {types.map((node) => {
+                    const IconComponent = iconMap[node.icon] || Box;
+                    return (
+                        <button
+                            key={node.type}
+                            className="w-full px-3 py-2 text-left text-[11px] hover:bg-content2 flex items-center gap-2 transition-colors"
+                            onClick={() => {
+                                onAddNode(node.type, position);
+                                onClose();
+                            }}
+                        >
+                            <IconComponent size={12} className={node.color} />
+                            {node.label}
+                        </button>
+                    );
+                })}
             </div>
         </div>
     );

@@ -85,6 +85,29 @@ export function getNodeOutputVariables(node: Node): Variable[] {
     const nodeName = node.data?.label || nodeType;
     const nodeId = node.id;
 
+    // 开始节点：从 data.variables 获取动态定义的变量
+    if (nodeType === "start") {
+        const staticOutputs = NODE_OUTPUT_VARIABLES.start || [];
+        const staticVariables = staticOutputs.map(output => ({
+            nodeId,
+            nodeName,
+            variableKey: output.key,
+            variableType: output.type,
+            description: output.description,
+        }));
+
+        // 添加用户定义的变量
+        const userVariables = (node.data?.variables || []).map((v: { name: string; type: string }) => ({
+            nodeId,
+            nodeName,
+            variableKey: v.name,
+            variableType: (v.type as VarType) || "string",
+            description: `用户定义变量`,
+        }));
+
+        return [...staticVariables, ...userVariables];
+    }
+
     const outputs = NODE_OUTPUT_VARIABLES[nodeType] || [];
 
     return outputs.map(output => ({

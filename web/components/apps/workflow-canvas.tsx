@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import {
     Button,
     Card,
@@ -80,6 +80,20 @@ export function WorkflowCanvas({
         horizontal: null,
         vertical: null,
     });
+
+    // 节点类型列表（从后端获取）
+    const [nodeTypesData, setNodeTypesData] = useState<{ type: string; label: string; icon: string; color: string }[]>([]);
+
+    // 从后端获取节点类型
+    useEffect(() => {
+        fetch('/api/workflow/nodes/types')
+            .then(res => res.json())
+            .then(data => setNodeTypesData(data.nodes || []))
+            .catch(() => {
+                // 失败时使用默认值
+                console.warn('Failed to fetch node types from backend');
+            });
+    }, []);
 
     // 为每条边附加 onInsertNode 回调
     const edgesWithData = edges.map(edge => ({
@@ -185,6 +199,7 @@ export function WorkflowCanvas({
                 isOpen={canvasMenu.isOpen}
                 position={canvasMenu.position}
                 onClose={closeMenus}
+                nodeTypes={nodeTypesData.length > 0 ? nodeTypesData : undefined}
                 onAddNode={(type, screenPos) => {
                     // 屏幕坐标转换为画布坐标
                     if (reactFlowInstance.current) {

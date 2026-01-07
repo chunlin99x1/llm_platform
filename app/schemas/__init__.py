@@ -97,3 +97,57 @@ class WorkflowDefResponse(BaseModel):
 
 class WorkflowDefUpdateRequest(BaseModel):
     graph: Dict[str, Any]
+
+
+# ============== 工作流节点配置相关 ==============
+
+class NodeTypeInfo(BaseModel):
+    """节点类型信息"""
+    type: str
+    label: str
+    icon: str
+    color: str
+    description: Optional[str] = None
+
+
+class NodeTypesResponse(BaseModel):
+    """节点类型列表响应"""
+    nodes: List[NodeTypeInfo]
+
+
+class ModelInfo(BaseModel):
+    """模型信息"""
+    id: str
+    name: str
+    provider: str
+    max_tokens: Optional[int] = None
+
+
+class ModelsResponse(BaseModel):
+    """模型列表响应"""
+    models: List[ModelInfo]
+
+
+class ToolInfo(BaseModel):
+    """工具信息"""
+    name: str
+    label: str
+    description: Optional[str] = None
+    parameters: Dict[str, Any] = Field(default_factory=dict)
+
+
+class ToolsResponse(BaseModel):
+    """工具列表响应"""
+    tools: List[ToolInfo]
+
+
+class VariableTypeInfo(BaseModel):
+    """变量类型信息"""
+    type: str
+    label: str
+    color: str
+
+
+class VariableTypesResponse(BaseModel):
+    """变量类型列表响应"""
+    types: List[VariableTypeInfo]

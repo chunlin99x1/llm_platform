@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import {
     Chip,
     Input,
@@ -46,6 +47,41 @@ export function WorkflowConfigPanel({
     setEdges,
     selectedId,
 }: WorkflowConfigPanelProps) {
+    // 模型列表状态
+    const [models, setModels] = useState<{ id: string; name: string; provider: string }[]>([]);
+    // 变量类型状态
+    const [variableTypes, setVariableTypes] = useState<{ type: string; label: string; color: string }[]>([]);
+
+    // 从后端获取模型列表
+    useEffect(() => {
+        fetch('/api/workflow/models')
+            .then(res => res.json())
+            .then(data => setModels(data.models || []))
+            .catch(() => {
+                // 回退到默认模型
+                setModels([
+                    { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+                    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai' },
+                    { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek' },
+                ]);
+            });
+
+        // 获取变量类型
+        fetch('/api/workflow/variable-types')
+            .then(res => res.json())
+            .then(data => setVariableTypes(data.types || []))
+            .catch(() => {
+                setVariableTypes([
+                    { type: 'string', label: '文本 (String)', color: '#3b82f6' },
+                    { type: 'number', label: '数字 (Number)', color: '#22c55e' },
+                    { type: 'object', label: '对象 (Object)', color: '#f97316' },
+                    { type: 'array[string]', label: '文本列表', color: '#06b6d4' },
+                    { type: 'file', label: '单文件 (File)', color: '#ec4899' },
+                    { type: 'array[file]', label: '文件列表', color: '#ec4899' },
+                ]);
+            });
+    }, []);
+
     // 获取节点类型对应的图标和颜色
     const getNodeMeta = (type: string | undefined) => {
         const meta: Record<string, { icon: any; color: string; label: string }> = {
@@ -254,12 +290,12 @@ export function WorkflowConfigPanel({
                                             aria-label="选择模型"
                                             onAction={(key) => updateSelectedNode({ model: key as string })}
                                         >
-                                            <DropdownItem key="gpt-4o">GPT-4o</DropdownItem>
-                                            <DropdownItem key="gpt-4o-mini">GPT-4o Mini</DropdownItem>
-                                            <DropdownItem key="gpt-4-turbo">GPT-4 Turbo</DropdownItem>
-                                            <DropdownItem key="gpt-3.5-turbo">GPT-3.5 Turbo</DropdownItem>
-                                            <DropdownItem key="claude-3-5-sonnet">Claude 3.5 Sonnet</DropdownItem>
-                                            <DropdownItem key="deepseek-chat">DeepSeek Chat</DropdownItem>
+                                            {models.map((m) => (
+                                                <DropdownItem key={m.id}>
+                                                    {m.name}
+                                                    <span className="text-[9px] text-foreground-400 ml-1">({m.provider})</span>
+                                                </DropdownItem>
+                                            ))}
                                         </DropdownMenu>
                                     </Dropdown>
                                 </div>
@@ -352,17 +388,101 @@ export function WorkflowConfigPanel({
                         )}
 
                         {selectedNode.type === "start" && (
-                            <div className="py-8 flex flex-col items-center gap-3 text-center">
-                                <div className="h-12 w-12 rounded-full bg-success/10 flex items-center justify-center text-success">
-                                    <Play size={20} />
+                            <section className="flex flex-col gap-3">
+                                {/* 输入字段标题和添加按钮 */}
+                                <div className="flex items-center justify-between">
+                                    <div className="text-[11px] font-semibold text-foreground">输入字段</div>
+                                    <Dropdown>
+                                        <DropdownTrigger>
+                                            <Button size="sm" variant="light" className="h-6 px-2 text-[10px] text-primary">
+                                                <Plus size={12} className="mr-1" />
+                                                添加
+                                            </Button>
+                                        </DropdownTrigger>
+                                        <DropdownMenu
+                                            aria-label="变量类型"
+                                            onAction={(key) => {
+                                                const vars = [...(selectedNode.data?.variables || [])];
+                                                const varName = `input${vars.length + 1}`;
+                                                vars.push({ name: varName, type: key as string, required: true });
+                                                updateSelectedNode({ variables: vars });
+                                            }}
+                                        >
+                                            {variableTypes.map((vt) => (
+                                                <DropdownItem key={vt.type}>{vt.label}</DropdownItem>
+                                            ))}
+                                        </DropdownMenu>
+                                    </Dropdown>
                                 </div>
-                                <div>
-                                    <div className="text-[11px] font-bold">起点节点</div>
-                                    <p className="text-[10px] text-foreground mt-1 max-w-[160px] leading-snug">
-                                        初始化输入与环境。
-                                    </p>
+
+                                {/* 用户变量列表 */}
+                                <div className="space-y-1">
+                                    {(selectedNode.data?.variables || []).map((v: { name: string; type: string; required?: boolean }, index: number) => (
+                                        <div
+                                            key={index}
+                                            className="flex h-9 items-center justify-between rounded-lg border border-divider bg-content2/50 px-2 shadow-xs hover:shadow-sm transition-shadow group"
+                                        >
+                                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                                                <Variable size={12} className="text-primary shrink-0" />
+                                                <Input
+                                                    size="sm"
+                                                    variant="underlined"
+                                                    value={v.name}
+                                                    onValueChange={(val) => {
+                                                        const vars = [...(selectedNode.data?.variables || [])];
+                                                        vars[index] = { ...vars[index], name: val };
+                                                        updateSelectedNode({ variables: vars });
+                                                    }}
+                                                    classNames={{
+                                                        base: "max-w-[100px]",
+                                                        input: "text-[12px] font-medium font-mono",
+                                                        inputWrapper: "h-6 min-h-6 !px-0 after:hidden shadow-none bg-transparent"
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-1">
+                                                {v.required && <span className="text-[10px] text-foreground-400 mr-1">必填</span>}
+                                                <span className="text-[10px] text-foreground-400">{v.type}</span>
+                                                <Button
+                                                    isIconOnly
+                                                    size="sm"
+                                                    variant="light"
+                                                    className="h-5 w-5 min-w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    onPress={() => {
+                                                        const vars = [...(selectedNode.data?.variables || [])];
+                                                        vars.splice(index, 1);
+                                                        updateSelectedNode({ variables: vars });
+                                                    }}
+                                                >
+                                                    <span className="text-danger text-sm">×</span>
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </div>
-                            </div>
+
+                                {/* 分隔线 */}
+                                <div className="h-px bg-divider my-1" />
+
+                                {/* 系统变量 */}
+                                <div className="space-y-1">
+                                    <div className="text-[10px] font-medium text-foreground-400 mb-1">系统变量</div>
+                                    {[
+                                        { name: "sys.query", type: "String" },
+                                        { name: "sys.files", type: "Array[File]" },
+                                        { name: "sys.user_id", type: "String" },
+                                        { name: "sys.conversation_id", type: "String" },
+                                    ].map((v) => (
+                                        <div key={v.name} className="flex h-8 items-center justify-between rounded-lg border border-divider bg-content2/30 px-2.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <Variable size={12} className="text-foreground-400" />
+                                                <span className="text-[12px] text-foreground-500">{v.name}</span>
+                                            </div>
+                                            <span className="text-[10px] text-foreground-400">{v.type}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
                         )}
 
                         {/* 条件分支节点配置 */}
