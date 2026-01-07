@@ -1,0 +1,53 @@
+"""
+节点执行器模块
+
+每个节点类型对应一个执行函数。
+
+Author: chunlin
+"""
+
+from typing import Dict, Any, AsyncGenerator
+from .start import execute_start_node
+from .llm import execute_llm_node
+from .answer import execute_answer_node
+from .code import execute_code_node
+from .http import execute_http_node
+from .condition import execute_condition_node
+from .variable import execute_variable_node
+
+
+# 节点执行器映射
+NODE_EXECUTORS = {
+    "start": execute_start_node,
+    "llm": execute_llm_node,
+    "answer": execute_answer_node,
+    "end": execute_answer_node,
+    "code": execute_code_node,
+    "http": execute_http_node,
+    "condition": execute_condition_node,
+    "variable": execute_variable_node,
+}
+
+
+async def execute_node(
+    node_id: str,
+    node_type: str,
+    node_data: Dict[str, Any],
+    state: Dict[str, Any],
+    edges: list
+) -> AsyncGenerator[Dict[str, Any], None]:
+    """
+    执行节点，返回执行结果的生成器。
+    
+    Yields:
+        事件字典，包含：
+        - type: 事件类型 (output, result)
+        - data: 事件数据
+    """
+    executor = NODE_EXECUTORS.get(node_type)
+    
+    if executor:
+        async for event in executor(node_id, node_data, state, edges):
+            yield event
+    else:
+        yield {"type": "result", "outputs": {}}
