@@ -9,6 +9,7 @@ from .app import App
 from .workflow import WorkflowDef, WorkflowRun, NodeRun
 from .chat import ChatMessage
 from .knowledge import KnowledgeBase, Document, DocumentSegment
+from .settings import ModelProvider, ProviderModel, User
 
 __all__ = [
     # Agent
@@ -27,4 +28,8 @@ __all__ = [
     "KnowledgeBase",
     "Document",
     "DocumentSegment",
+    # Settings
+    "ModelProvider",
+    "ProviderModel",
+    "User",
 ]

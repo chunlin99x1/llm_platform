@@ -13,6 +13,7 @@ async def init_db():
             "database.models.workflow",
             "database.models.chat",
             "database.models.knowledge",
+            "database.models.settings",
         ]}
     )
 

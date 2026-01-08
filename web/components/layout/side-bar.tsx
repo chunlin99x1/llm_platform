@@ -59,7 +59,18 @@ export default function SideBar() {
       </div>
 
       <div className="mt-auto flex flex-col gap-3">
-        <Button isIconOnly variant="light" className="text-foreground h-9 w-9 rounded-xl">
+        <Button
+          as={Link}
+          href="/settings"
+          isIconOnly
+          variant="light"
+          className={clsx(
+            "h-9 w-9 rounded-xl transition-all duration-300",
+            pathname.startsWith("/settings")
+              ? "bg-primary/10 text-primary"
+              : "text-foreground hover:bg-default-100"
+          )}
+        >
           <Settings size={18} />
         </Button>
         <Avatar
