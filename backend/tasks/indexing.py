@@ -92,11 +92,26 @@ def index_document_task(
 
             self.update_state(state="INDEXING", meta={
                 "progress": 70,
-                "stage": "存储到向量库...",
+                "stage": "存储到数据库...",
                 "total_chunks": len(segments)
             })
 
-            # 3. 存储到 Weaviate
+            # 3. 保存片段到数据库 (先保存以获取 ID)
+            from database.models import DocumentSegment
+            
+            db_segments = []
+            for seg in segments:
+                db_seg = await DocumentSegment.create(
+                    document_id=document_id,
+                    content=seg.content,
+                    position=seg.position,
+                    tokens=seg.tokens,
+                    hit_count=0,
+                    enabled=True
+                )
+                db_segments.append(db_seg)
+
+            # 4. 存储到 Weaviate
             weaviate = get_weaviate_client()
             collection_name = f"kb_{knowledge_base_id}"
             
@@ -104,12 +119,14 @@ def index_document_task(
             await weaviate.create_collection(collection_name)
 
             documents_to_add = []
+            # 使用 db_segments 匹配真实 ID
             for i, seg in enumerate(segments):
                 documents_to_add.append({
                     "content": seg.content,
                     "doc_id": str(document_id),
                     "doc_name": filename,
                     "chunk_index": seg.position,
+                    "segment_id": db_segments[i].id, # Use REAL DB ID
                     "knowledge_base_id": str(knowledge_base_id),
                     "source": filename,
                     "enabled": True,
@@ -121,22 +138,8 @@ def index_document_task(
 
             self.update_state(state="SAVING", meta={
                 "progress": 90,
-                "stage": "保存片段到数据库..."
+                "stage": "完成..."
             })
-
-            # 4. 保存片段到数据库
-            from database.models import DocumentSegment
-            
-            # Bulk create is better if library supports it, otherwise loop
-            for seg in segments:
-                await DocumentSegment.create(
-                    document_id=document_id,
-                    content=seg.content,
-                    position=seg.position,
-                    tokens=seg.tokens,
-                    hit_count=0,
-                    enabled=True
-                )
 
             # 5. 更新文档状态为完成
             await update_document_status(
