@@ -134,16 +134,12 @@ class DashScopeEmbedding(BaseEmbedding):
             "text-embedding-async-v2": 1536,
         }
         self._dimension = self._dimensions.get(model, 1024)
+        self.dashscope_api_key = get_settings().dashscope_api_key
 
     async def embed_query(self, text: str) -> List[float]:
         from langchain_community.embeddings import DashScopeEmbeddings
         import asyncio
-        print("DashScope key:", get_settings().dashscope_api_key)
-        # 手动设置 key
-        # 获取环境变量
-        print("DASHSCOPE_API_KEY:", os.environ.get("DASHSCOPE_API_KEY"))
-        os.environ["DASHSCOPE_API_KEY"] = get_settings().dashscope_api_key
-        embeddings = DashScopeEmbeddings(model=self.model,dashscope_api_key=get_settings().dashscope_api_key)
+        embeddings = DashScopeEmbeddings(model=self.model,dashscope_api_key=self.dashscope_api_key)
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
@@ -154,12 +150,7 @@ class DashScopeEmbedding(BaseEmbedding):
     async def embed_documents(self, texts: List[str]) -> List[List[float]]:
         from langchain_community.embeddings import DashScopeEmbeddings
         import asyncio
-
-        # 手动设置 key
-        # 获取环境变量
-        print("DASHSCOPE_API_KEY:", os.environ.get("DASHSCOPE_API_KEY"))
-        os.environ["DASHSCOPE_API_KEY"] = get_settings().dashscope_api_key
-        embeddings = DashScopeEmbeddings(model=self.model,dashscope_api_key=get_settings().dashscope_api_key)
+        embeddings = DashScopeEmbeddings(model=self.model,dashscope_api_key=self.dashscope_api_key)
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
