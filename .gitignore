@@ -29,6 +29,7 @@ env/
 # Tortoise ORM / SQLite
 *.db
 *.sqlite3
+migrations/
 
 # UV / pip build
 .uv/
