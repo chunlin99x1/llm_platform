@@ -13,7 +13,6 @@ from configs import get_settings
 
 # 获取配置
 settings = get_settings()
-print( settings)
 # Celery 实例
 celery_app = Celery(
     "llmops",

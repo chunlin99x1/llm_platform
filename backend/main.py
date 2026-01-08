@@ -11,7 +11,7 @@ from api.routers.workflow_nodes import router as workflow_nodes_router
 from api.routers.workflow_stream import router as workflow_stream_router
 from api.routers.workflow_publish import router as workflow_publish_router
 from api.routers.knowledge import router as knowledge_router
-from database.db import close_db, init_db,generate_schema
+from database.connection import close_db, init_db,generate_schema
 
 
 @asynccontextmanager
