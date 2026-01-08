@@ -58,40 +58,46 @@ def index_document_task(
     from core.rag.embedding import EmbeddingService
     from core.rag.weaviate_client import WeaviateClient
 
-    try:
-        # 1. 分块
-        chunker = DocumentChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
-        segments = chunker.chunk_document(
-            content=content,
-            metadata={"doc_id": str(document_id), "doc_name": filename}
-        )
+    # ... imports
 
-        self.update_state(state="EMBEDDING", meta={
-            "progress": 30,
-            "stage": "向量化中...",
-            "total_chunks": len(segments)
-        })
-
-        # 2. 向量化
-        embedding = EmbeddingService(
-            provider=embedding_provider,
-            model=embedding_model
-        )
-
-        texts = [seg.content for seg in segments]
-        vectors = run_async(embedding.embed_documents(texts))
-
-        self.update_state(state="INDEXING", meta={
-            "progress": 70,
-            "stage": "存储到向量库...",
-            "total_chunks": len(segments)
-        })
-
-        # 3. 存储到 Weaviate
-        weaviate = get_weaviate_client()
-        collection_name = f"kb_{knowledge_base_id}"
-
+    # 1. Main Async Logic Wrapper
+    async def index_document_async():
         try:
+            # 1. 分块
+            chunker = DocumentChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+            segments = chunker.chunk_document(
+                content=content,
+                metadata={"doc_id": str(document_id), "doc_name": filename}
+            )
+
+            self.update_state(state="EMBEDDING", meta={
+                "progress": 30,
+                "stage": "向量化中...",
+                "total_chunks": len(segments)
+            })
+
+            # 2. 向量化
+            embedding = EmbeddingService(
+                provider=embedding_provider,
+                model=embedding_model
+            )
+
+            texts = [seg.content for seg in segments]
+            vectors = await embedding.embed_documents(texts)
+
+            self.update_state(state="INDEXING", meta={
+                "progress": 70,
+                "stage": "存储到向量库...",
+                "total_chunks": len(segments)
+            })
+
+            # 3. 存储到 Weaviate
+            weaviate = get_weaviate_client()
+            collection_name = f"kb_{knowledge_base_id}"
+            
+            # 确保 collection 存在 (Optional check, but safeguards against JIT creation errors)
+            # await weaviate.create_collection(collection_name) # Assuming it's improved
+
             documents_to_add = []
             for i, seg in enumerate(segments):
                 documents_to_add.append({
@@ -99,58 +105,58 @@ def index_document_task(
                     "doc_id": str(document_id),
                     "doc_name": filename,
                     "chunk_index": seg.position,
-                    "segment_id": i,
                     "knowledge_base_id": str(knowledge_base_id),
                     "source": filename,
                 })
 
-            run_async(weaviate.add_documents(collection_name, documents_to_add, vectors))
-        finally:
-            weaviate.close()
+            # Do NOT close weaviate here, it is a global singleton!
+            await weaviate.add_documents(collection_name, documents_to_add, vectors)
 
-        self.update_state(state="SAVING", meta={
-            "progress": 90,
-            "stage": "保存片段到数据库..."
-        })
+            self.update_state(state="SAVING", meta={
+                "progress": 90,
+                "stage": "保存片段到数据库..."
+            })
 
-        # 4. 保存片段到数据库
-        from database.models import DocumentSegment
-
-        async def save_segments():
+            # 4. 保存片段到数据库
+            from database.models import DocumentSegment
+            
+            # Bulk create is better if library supports it, otherwise loop
             for seg in segments:
                 await DocumentSegment.create(
                     document_id=document_id,
                     content=seg.content,
                     position=seg.position,
-                    tokens=seg.tokens
+                    tokens=seg.tokens,
+                    hit_count=0,
+                    enabled=True
                 )
 
-        run_async(save_segments())
+            # 5. 更新文档状态为完成
+            await update_document_status(
+                document_id=document_id,
+                status="completed",
+                segment_count=len(segments)
+            )
 
-        # 5. 更新文档状态为完成
-        run_async(update_document_status(
-            document_id=document_id,
-            status="completed",
-            segment_count=len(segments)
-        ))
+            return {
+                "status": "success",
+                "document_id": document_id,
+                "segments": len(segments),
+                "tokens": sum(seg.tokens for seg in segments)
+            }
 
-        return {
-            "status": "success",
-            "document_id": document_id,
-            "segments": len(segments),
-            "tokens": sum(seg.tokens for seg in segments)
-        }
+        except Exception as e:
+            # 更新文档状态为失败
+            await update_document_status(
+                document_id=document_id,
+                status="error",
+                error_message=str(e)
+            )
+            self.update_state(state=states.FAILURE, meta={
+                "exc_type": type(e).__name__, "exc_message": str(e)
+            })
+            raise e
 
-    except Exception as e:
-        # 更新文档状态为失败
-        run_async(update_document_status(
-            document_id=document_id,
-            status="error",
-            error_message=str(e)
-        ))
-
-        self.update_state(state=states.FAILURE, meta={
-            "exc_type": type(e).__name__, "exc_message": str(e)
-        })
-        raise
+    # Run the entire async logic in one loop
+    return run_async(index_document_async())
 
