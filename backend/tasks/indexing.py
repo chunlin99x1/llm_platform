@@ -100,8 +100,8 @@ def index_document_task(
             weaviate = get_weaviate_client()
             collection_name = f"kb_{knowledge_base_id}"
             
-            # 确保 collection 存在 (Optional check, but safeguards against JIT creation errors)
-            # await weaviate.create_collection(collection_name) # Assuming it's improved
+            # 确保 collection 存在并更新 Schema
+            await weaviate.create_collection(collection_name)
 
             documents_to_add = []
             for i, seg in enumerate(segments):

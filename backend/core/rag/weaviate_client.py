@@ -119,30 +119,41 @@ class WeaviateClient:
     # ============================
 
     async def create_collection(self, name: str) -> bool:
-        """创建 Collection (Schema 定义)"""
-        if self.client.collections.exists(name):
-            return True
-
+        """创建 Collection (Schema 定义)，如果存在则检查并补全缺失字段"""
         try:
+            # 定义期望的 Properties
+            expected_properties = [
+                Property(name="content", data_type=DataType.TEXT),
+                Property(name="doc_id", data_type=DataType.TEXT, skip_vectorization=True),
+                Property(name="doc_name", data_type=DataType.TEXT, skip_vectorization=True),
+                Property(name="chunk_index", data_type=DataType.INT, skip_vectorization=True),
+                Property(name="knowledge_base_id", data_type=DataType.TEXT, skip_vectorization=True),
+                Property(name="source", data_type=DataType.TEXT, skip_vectorization=True),
+                Property(name="enabled", data_type=DataType.BOOL, skip_vectorization=True),
+                Property(name="archived", data_type=DataType.BOOL, skip_vectorization=True),
+            ]
+
+            if self.client.collections.exists(name):
+                # 检查并更新 Schema
+                collection = self.client.collections.get(name)
+                existing_props = {p.name for p in collection.config.get().properties}
+                
+                for prop in expected_properties:
+                    if prop.name not in existing_props:
+                        logger.info(f"Adding missing property '{prop.name}' to collection '{name}'...")
+                        collection.config.add_property(prop)
+                return True
+
             self.client.collections.create(
                 name=name,
                 # 显式禁用内置 Vectorizer，因为我们使用外部 embedding
                 vectorizer_config=Configure.Vectorizer.none(),
-                properties=[
-                    Property(name="content", data_type=DataType.TEXT),
-                    Property(name="doc_id", data_type=DataType.TEXT, skip_vectorization=True),
-                    Property(name="doc_name", data_type=DataType.TEXT, skip_vectorization=True),
-                    Property(name="chunk_index", data_type=DataType.INT, skip_vectorization=True),
-                    Property(name="knowledge_base_id", data_type=DataType.TEXT, skip_vectorization=True),
-                    Property(name="source", data_type=DataType.TEXT, skip_vectorization=True),
-                    Property(name="enabled", data_type=DataType.BOOL, skip_vectorization=True),
-                    Property(name="archived", data_type=DataType.BOOL, skip_vectorization=True),
-                ]
+                properties=expected_properties
             )
             logger.info(f"Collection '{name}' created.")
             return True
         except Exception as e:
-            logger.error(f"Error creating collection {name}: {e}")
+            logger.error(f"Error creating/updating collection {name}: {e}")
             return False
 
     async def delete_collection(self, name: str) -> bool:
