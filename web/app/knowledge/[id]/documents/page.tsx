@@ -32,6 +32,8 @@ import {
     MoreHorizontal,
     Filter,
 } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-provider";
+import { toast } from "sonner";
 
 interface Document {
     id: number;
@@ -80,6 +82,8 @@ export default function DocumentsPage() {
 
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+
+    const { confirm } = useConfirm();
 
     useEffect(() => {
         loadDocuments();
@@ -133,8 +137,10 @@ export default function DocumentsPage() {
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({ enabled: !currentEnabled })
             });
+            toast.success(currentEnabled ? "文档已禁用" : "文档已启用");
         } catch (e) {
             console.error("Failed to toggle status:", e);
+            toast.error("操作失败，请重试");
             // Revert on error
             loadDocuments();
         }
@@ -164,7 +170,32 @@ export default function DocumentsPage() {
     // Batch Actions
     async function handleBatchAction(action: string) {
         if (selectedDocIds.size === 0) return;
-        if (action === "delete" && !confirm(`确定要删除选中的 ${selectedDocIds.size} 个文档吗？`)) return;
+
+        let confirmMsg = "";
+        let type: "info" | "warning" | "danger" | "success" = "warning";
+
+        if (action === "delete") {
+            confirmMsg = `确定要删除选中的 ${selectedDocIds.size} 个文档吗？此操作不可恢复。`;
+            type = "danger";
+        } else if (action === "archive") {
+            confirmMsg = `确定要归档选中的 ${selectedDocIds.size} 个文档吗？`;
+            type = "warning";
+        } else if (action === "disable") {
+            confirmMsg = `确定要禁用选中的 ${selectedDocIds.size} 个文档吗？`;
+        } else if (action === "enable") {
+            confirmMsg = `确定要启用选中的 ${selectedDocIds.size} 个文档吗？`;
+            type = "success";
+        }
+
+        if (confirmMsg) {
+            const confirmed = await confirm({
+                title: "批量操作确认",
+                message: confirmMsg,
+                type: type,
+                confirmText: "确定执行"
+            });
+            if (!confirmed) return;
+        }
 
         try {
             await fetch(`/api/knowledge/datasets/${kbId}/documents/batch`, {
@@ -175,10 +206,12 @@ export default function DocumentsPage() {
                     action
                 })
             });
+            toast.success("批量操作执行成功");
             await loadDocuments();
             setSelectedDocIds(new Set()); // Clear selection
         } catch (e) {
             console.error("Batch action failed:", e);
+            toast.error("操作失败");
         }
     }
 
@@ -208,10 +241,14 @@ export default function DocumentsPage() {
             setUploadProgress(100);
 
             if (resp.ok) {
+                toast.success("文档上传成功，开始处理...");
                 await loadDocuments();
+            } else {
+                toast.error("上传失败");
             }
         } catch (e) {
             console.error("Upload failed:", e);
+            toast.error("上传出错");
         } finally {
             setTimeout(() => {
                 setUploading(false);
@@ -224,15 +261,23 @@ export default function DocumentsPage() {
     }
 
     async function deleteDocument(docId: number) {
-        if (!confirm("确定要删除这个文档吗？")) return;
+        const confirmed = await confirm({
+            title: "删除文档",
+            message: "确定要删除这个文档吗？此操作不可恢复，将同时删除相关的向量索引。",
+            type: "danger",
+            confirmText: "删除"
+        });
+        if (!confirmed) return;
 
         try {
             await fetch(`/api/knowledge/datasets/${kbId}/documents/${docId}`, {
                 method: "DELETE",
             });
+            toast.success("文档已删除");
             await loadDocuments();
         } catch (e) {
             console.error("Delete failed:", e);
+            toast.error("删除失败");
         }
     }
 

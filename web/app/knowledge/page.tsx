@@ -28,6 +28,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { Filter } from "lucide-react";
+import { useConfirm } from "@/components/ui/confirm-provider";
+import { toast } from "sonner";
 
 interface KnowledgeBase {
     id: number;
@@ -51,6 +53,8 @@ export default function KnowledgePage() {
     const [newRetrievalMode, setNewRetrievalMode] = useState("hybrid");
     const [creating, setCreating] = useState(false);
 
+    const { confirm } = useConfirm();
+
     useEffect(() => {
         loadKnowledgeBases();
     }, []);
@@ -64,6 +68,7 @@ export default function KnowledgePage() {
             }
         } catch (e) {
             console.error("Failed to load knowledge bases:", e);
+            toast.error("加载知识库失败");
         } finally {
             setLoading(false);
         }
@@ -89,22 +94,34 @@ export default function KnowledgePage() {
                 onClose();
                 setNewName("");
                 setNewDescription("");
+                toast.success("知识库创建成功");
+            } else {
+                toast.error("创建失败");
             }
         } catch (e) {
             console.error("Failed to create knowledge base:", e);
+            toast.error("创建失败");
         } finally {
             setCreating(false);
         }
     }
 
     async function deleteKnowledgeBase(id: number) {
-        if (!confirm("确定要删除这个知识库吗？")) return;
+        const confirmed = await confirm({
+            title: "删除知识库",
+            message: "确定要删除这个知识库吗？此操作不可恢复，所有文档和索引将被永久删除。",
+            type: "danger",
+            confirmText: "删除"
+        });
+        if (!confirmed) return;
 
         try {
             await fetch(`/api/knowledge/datasets/${id}`, { method: "DELETE" });
+            toast.success("知识库已删除");
             await loadKnowledgeBases();
         } catch (e) {
             console.error("Failed to delete:", e);
+            toast.error("删除失败");
         }
     }
 

@@ -33,6 +33,7 @@ import {
     Pencil,
     MoreHorizontal,
 } from "lucide-react";
+import { toast } from "sonner";
 
 interface Document {
     id: number;
@@ -164,9 +165,13 @@ export default function DocumentDetailPage() {
             if (resp.ok) {
                 onClose();
                 loadSegments();
+                toast.success("分段更新成功");
+            } else {
+                toast.error("更新失败");
             }
         } catch (e) {
             console.error("Failed to save segment:", e);
+            toast.error("更新失败");
         } finally {
             setSaving(false);
         }

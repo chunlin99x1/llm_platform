@@ -13,6 +13,7 @@ import {
     Spinner,
 } from "@heroui/react";
 import { Save, ChevronDown, User, FileText, Database, Sliders } from "lucide-react";
+import { toast } from "sonner";
 
 interface KnowledgeBase {
     id: number;
@@ -96,13 +97,13 @@ export default function SettingsPage() {
             if (resp.ok) {
                 const data = await resp.json();
                 setKb(data);
-                alert("保存成功");
+                toast.success("保存成功");
             } else {
-                alert("保存失败");
+                toast.error("保存失败");
             }
         } catch (e) {
             console.error("Save failed:", e);
-            alert("保存失败");
+            toast.error("保存失败");
         } finally {
             setSaving(false);
         }
