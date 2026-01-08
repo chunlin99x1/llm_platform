@@ -107,6 +107,8 @@ def index_document_task(
                     "chunk_index": seg.position,
                     "knowledge_base_id": str(knowledge_base_id),
                     "source": filename,
+                    "enabled": True,
+                    "archived": False,
                 })
 
             # Do NOT close weaviate here, it is a global singleton!

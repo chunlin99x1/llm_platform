@@ -135,6 +135,8 @@ class WeaviateClient:
                     Property(name="chunk_index", data_type=DataType.INT, skip_vectorization=True),
                     Property(name="knowledge_base_id", data_type=DataType.TEXT, skip_vectorization=True),
                     Property(name="source", data_type=DataType.TEXT, skip_vectorization=True),
+                    Property(name="enabled", data_type=DataType.BOOL, skip_vectorization=True),
+                    Property(name="archived", data_type=DataType.BOOL, skip_vectorization=True),
                 ]
             )
             logger.info(f"Collection '{name}' created.")
