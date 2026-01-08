@@ -60,6 +60,12 @@ export default function KnowledgeDetailPage() {
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [uploadResult, setUploadResult] = useState<{
+        taskId: string;
+        status: string;
+        progress: number;
+        stage: string;
+    } | null>(null);
 
     // 检索
     const [query, setQuery] = useState("");
@@ -91,6 +97,7 @@ export default function KnowledgeDetailPage() {
 
         setUploading(true);
         setUploadProgress(0);
+        setUploadResult(null);
 
         const formData = new FormData();
         formData.append("file", file);
@@ -112,16 +119,76 @@ export default function KnowledgeDetailPage() {
             setUploadProgress(100);
 
             if (resp.ok) {
+                const data = await resp.json();
+                console.log("Upload response:", data);
+
+                // 设置任务状态
+                setUploadResult({
+                    taskId: data.task_id,
+                    status: data.status,
+                    progress: 0,
+                    stage: "已提交处理"
+                });
+
+                // 开始轮询任务状态
+                if (data.task_id) {
+                    pollTaskStatus(data.task_id);
+                }
+
                 await loadKnowledgeBase();
+            } else {
+                const error = await resp.text();
+                console.error("Upload error:", error);
+                setUploadResult({
+                    taskId: "",
+                    status: "error",
+                    progress: 0,
+                    stage: `上传失败: ${error}`
+                });
             }
         } catch (e) {
             console.error("Upload failed:", e);
+            setUploadResult({
+                taskId: "",
+                status: "error",
+                progress: 0,
+                stage: "上传失败"
+            });
         } finally {
             setTimeout(() => {
                 setUploading(false);
                 setUploadProgress(0);
             }, 500);
         }
+    }
+
+    async function pollTaskStatus(taskId: string) {
+        const poll = async () => {
+            try {
+                const resp = await fetch(`/api/knowledge/tasks/${taskId}`);
+                if (resp.ok) {
+                    const data = await resp.json();
+                    setUploadResult({
+                        taskId: taskId,
+                        status: data.status,
+                        progress: data.progress || 0,
+                        stage: data.stage || data.status
+                    });
+
+                    // 继续轮询直到完成或失败
+                    if (data.status !== "SUCCESS" && data.status !== "FAILURE") {
+                        setTimeout(poll, 2000);
+                    } else {
+                        // 完成后刷新知识库
+                        await loadKnowledgeBase();
+                    }
+                }
+            } catch (e) {
+                console.error("Poll failed:", e);
+            }
+        };
+
+        poll();
     }
 
     async function handleSearch() {

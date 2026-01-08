@@ -1,27 +1,45 @@
 services:
   weaviate:
+    command:
+    - --host
+    - 0.0.0.0
+    - --port
+    - '8080'
+    - --scheme
+    - http
     image: semitechnologies/weaviate:1.28.4
-    restart: always
     ports:
-      - "8080:8080"
+    - 8080:8080     # HTTP
+    - 50051:50051   # gRPC
+    volumes:
+    - weaviate_data:/var/lib/weaviate
+    restart: on-failure:0
     environment:
-      QUERY_DEFAULTS_LIMIT: 25
-      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+      # --- 核心修复配置 (Fix "leader not found") ---
+      # 必须指定主机名，否则 Raft 集群无法选主
       CLUSTER_HOSTNAME: 'node1'
 
-      # ❌ 不再使用自动向量化
+      # --- 基础配置 ---
+      QUERY_DEFAULTS_LIMIT: 25
+      PERSISTENCE_DATA_PATH: '/var/lib/weaviate'
+
+      # --- 向量化配置 ---
+      # 使用外部 Embedding (LangChain) -> 设为 none
       DEFAULT_VECTORIZER_MODULE: 'none'
+
+      # 即使不使用内部模型，显式设置模块为空或仅包含必要的备份模块通常更稳健
+      # 如果不需要 backup-filesystem 也可以留空，但建议不要注释掉 CLUSTER_HOSTNAME
       ENABLE_MODULES: ''
 
+      # --- 认证配置 (已启用 API Key) ---
       AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: 'false'
       AUTHENTICATION_APIKEY_ENABLED: 'true'
+      # 这里设置的 Key 就是你 Python 代码初始化时需要传入的 api_key
       AUTHENTICATION_APIKEY_ALLOWED_KEYS: 'weaviate-admin'
       AUTHENTICATION_APIKEY_USERS: 'admin'
-      AUTHORIZATION_ENABLED: 'true'
-      LIMIT_MAX_RESULTS: 200
 
-    volumes:
-      - weaviate_data:/var/lib/weaviate
+      # 可选：关闭遥测数据上传
+      DISABLE_TELEMETRY: 'true'
 
 volumes:
   weaviate_data:

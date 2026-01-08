@@ -62,3 +62,9 @@ pnpm dev
 - `app/db/models.py`：Tortoise ORM 模型（工作流运行、节点运行、消息）。
 - `app/db/db.py`：Tortoise 初始化与关闭。
 - `app/schemas/__init__.py`：请求/响应 Schema。
+
+
+### celery 运行
+cd backend
+PYTHONPATH=. celery -A tasks.celery_app worker --loglevel=info
+

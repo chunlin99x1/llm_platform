@@ -8,6 +8,8 @@ Author: chunlin
 
 from typing import List, Optional
 from abc import ABC, abstractmethod
+from configs import get_settings
+
 import os
 import numpy as np
 
@@ -136,8 +138,12 @@ class DashScopeEmbedding(BaseEmbedding):
     async def embed_query(self, text: str) -> List[float]:
         from langchain_community.embeddings import DashScopeEmbeddings
         import asyncio
-
-        embeddings = DashScopeEmbeddings(model=self.model)
+        print("DashScope key:", get_settings().dashscope_api_key)
+        # 手动设置 key
+        # 获取环境变量
+        print("DASHSCOPE_API_KEY:", os.environ.get("DASHSCOPE_API_KEY"))
+        os.environ["DASHSCOPE_API_KEY"] = get_settings().dashscope_api_key
+        embeddings = DashScopeEmbeddings(model=self.model,dashscope_api_key=get_settings().dashscope_api_key)
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
@@ -149,7 +155,11 @@ class DashScopeEmbedding(BaseEmbedding):
         from langchain_community.embeddings import DashScopeEmbeddings
         import asyncio
 
-        embeddings = DashScopeEmbeddings(model=self.model)
+        # 手动设置 key
+        # 获取环境变量
+        print("DASHSCOPE_API_KEY:", os.environ.get("DASHSCOPE_API_KEY"))
+        os.environ["DASHSCOPE_API_KEY"] = get_settings().dashscope_api_key
+        embeddings = DashScopeEmbeddings(model=self.model,dashscope_api_key=get_settings().dashscope_api_key)
         loop = asyncio.get_event_loop()
         result = await loop.run_in_executor(
             None,
@@ -180,7 +190,7 @@ class EmbeddingService:
         elif provider == "local":
             self.embedder = LocalEmbedding(model_name=model or "BAAI/bge-base-zh-v1.5")
         elif provider == "dashscope":
-            self.embedder = DashScopeEmbedding(model=model or "text-embedding-v3")
+            self.embedder = DashScopeEmbedding(model=model or "text-embedding-v3", )
         else:
             raise ValueError(f"Unknown embedding provider: {provider}")
 

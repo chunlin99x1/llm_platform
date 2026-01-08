@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     """应用配置"""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=Path(__file__).resolve().parent.parent / ".env",
         env_file_encoding="utf-8",
         extra="ignore"
     )
@@ -39,7 +39,7 @@ class Settings(BaseSettings):
     )
 
     # ============== LLM ==============
-    dashscope_api_key: str = Field(default="", alias="DASHSCOPE_API_KEY")
+    dashscope_api_key: str = Field(default="sk-hLshRr7Ejn", alias="DASHSCOPE_API_KEY")
     dashscope_base_url: str = Field(
         default="https://dashscope.aliyuncs.com/compatible-mode/v1",
         alias="DASHSCOPE_BASE_URL"
