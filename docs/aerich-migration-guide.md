@@ -3,7 +3,7 @@
 ## 环境准备
 
 ```bash
-cd fastapi_llmops
+cd fastapi_llmops/
 source .venv/bin/activate
 ```
 
