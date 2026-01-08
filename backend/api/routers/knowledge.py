@@ -19,7 +19,7 @@ from core.rag.chunker import DocumentChunker
 from core.rag.embedding import EmbeddingService
 from core.rag.db_conn import get_weaviate_client
 from core.rag.retriever import HybridRetriever, RetrievalConfig, RetrievalMode
-from core.rag.reranker import BGEReranker
+from core.rag.reranker import DashScopeReranker
 # 在文件顶部添加日志配置
 logger = logging.getLogger(__name__)
 
@@ -407,7 +407,7 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
 
         # Rerank
         if payload.rerank and results:
-            reranker = BGEReranker()
+            reranker = DashScopeReranker()
             docs_for_rerank = [
                 {"content": r.content, "metadata": r.metadata}
                 for r in results
@@ -923,10 +923,18 @@ async def hit_testing(kb_id: int, payload: HitTestingRequest):
             collection_name=collection_name,
             config=config
         )
+        
+        # DEBUG: 打印原始检索结果
+        print(f"[HIT_TESTING DEBUG] Query: {payload.query}")
+        print(f"[HIT_TESTING DEBUG] Collection: {collection_name}")
+        print(f"[HIT_TESTING DEBUG] Raw results count: {len(results)}")
+        for i, r in enumerate(results[:3]):  # 只打印前 3 条
+            print(f"[HIT_TESTING DEBUG] Result {i}: score={r.score}, content={r.content[:50]}..., metadata={r.metadata}")
 
         # Rerank
         if payload.rerank and results:
-            reranker = BGEReranker()
+            from core.rag.reranker import DashScopeReranker
+            reranker = DashScopeReranker()
             docs_for_rerank = [
                 {"content": r.content, "metadata": r.metadata}
                 for r in results

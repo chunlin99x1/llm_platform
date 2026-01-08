@@ -9,13 +9,17 @@ Author: chunlin
 from .chunker import DocumentChunker
 from .embedding import EmbeddingService
 from .weaviate_client import WeaviateClient
-from .retriever import HybridRetriever
-from .reranker import BGEReranker
+from .retriever import HybridRetriever, WeaviateHybridRetriever, RetrievalMode, RetrievalConfig
+from .reranker import DashScopeReranker, RerankResult
 
 __all__ = [
     "DocumentChunker",
     "EmbeddingService", 
     "WeaviateClient",
     "HybridRetriever",
-    "BGEReranker",
+    "WeaviateHybridRetriever",
+    "RetrievalMode",
+    "RetrievalConfig",
+    "DashScopeReranker",
+    "RerankResult",
 ]

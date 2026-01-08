@@ -203,6 +203,9 @@ class WeaviateClient:
                         "chunk_index": doc.get("chunk_index", 0),
                         "knowledge_base_id": doc.get("knowledge_base_id", ""),
                         "source": doc.get("source", ""),
+                        "segment_id": doc.get("segment_id", 0),
+                        "enabled": doc.get("enabled", True),
+                        "archived": doc.get("archived", False),
                     },
                     vector=vec
                 )
@@ -287,6 +290,9 @@ class WeaviateClient:
                 "chunk_index": props.get("chunk_index", 0),
                 "knowledge_base_id": props.get("knowledge_base_id", ""),
                 "source": props.get("source", ""),
+                "segment_id": props.get("segment_id", 0),
+                "enabled": props.get("enabled", True),
+                "archived": props.get("archived", False),
                 "distance": distance,
             }
         )
@@ -299,8 +305,7 @@ class WeaviateClient:
         self,
         collection_name: str,
         query: str,
-        embedding,
-        query_vector: Optional[List[float]] = None,
+        query_vector: List[float],
         alpha: float = 0.5,
         limit: int = 10,
         filters: Optional[Dict[str, Any]] = None
@@ -309,9 +314,6 @@ class WeaviateClient:
         混合检索（向量 + BM25）
         """
         collection = self.client.collections.get(collection_name)
-
-        if query_vector is None:
-            query_vector = embedding.embed_query(query)
 
         weaviate_filter = self._build_filter(filters)
 
@@ -336,17 +338,12 @@ class WeaviateClient:
     async def vector_search(
         self,
         collection_name: str,
-        query: str,
-        embedding,
-        query_vector: Optional[List[float]] = None,
+        query_vector: List[float],
         limit: int = 10,
         filters: Optional[Dict[str, Any]] = None
     ) -> List[SearchResult]:
         """纯向量检索"""
         collection = self.client.collections.get(collection_name)
-
-        if query_vector is None:
-            query_vector = embedding.embed_query(query)
 
         weaviate_filter = self._build_filter(filters)
 

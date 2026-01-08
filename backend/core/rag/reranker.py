@@ -1,12 +1,12 @@
 """
-BGE Reranker 重排序
+Reranker 重排序模块
 
-使用 BGE-Reranker 模型对检索结果重排序。
+使用 LangChain 集成的 DashScope Rerank 模型对检索结果重排序。
 
 Author: chunlin
 """
 
-from typing import List, Optional, Tuple
+from typing import List, Optional
 from dataclasses import dataclass
 import asyncio
 
@@ -20,32 +20,38 @@ class RerankResult:
     metadata: dict
 
 
-class BGEReranker:
+class DashScopeReranker:
     """
-    BGE Reranker 重排序器
+    DashScope Reranker (基于 LangChain 集成)
     
-    支持：
-    - BAAI/bge-reranker-base（轻量级）
-    - BAAI/bge-reranker-large（高精度）
+    使用 langchain_community 的 DashScopeRerank 组件。
+    
+    模型选项：
+    - gte-rerank (默认)
     """
     
-    def __init__(self, model_name: str = "BAAI/bge-reranker-base"):
+    def __init__(
+        self, 
+        model_name: str = "gte-rerank",
+        top_n: int = 10
+    ):
         self.model_name = model_name
-        self._model = None
-        self._tokenizer = None
+        self.top_n = top_n
+        self._reranker = None
     
-    def _load_model(self):
-        if self._model is None:
-            from transformers import AutoModelForSequenceClassification, AutoTokenizer
-            import torch
+    def _get_reranker(self):
+        """懒加载 LangChain DashScopeRerank 实例"""
+        if self._reranker is None:
+            from langchain_community.document_compressors.dashscope_rerank import DashScopeRerank
+            from configs import get_settings
             
-            self._tokenizer = AutoTokenizer.from_pretrained(self.model_name)
-            self._model = AutoModelForSequenceClassification.from_pretrained(self.model_name)
-            self._model.eval()
-            
-            # 使用 GPU 如果可用
-            if torch.cuda.is_available():
-                self._model = self._model.cuda()
+            settings = get_settings()
+            self._reranker = DashScopeRerank(
+                model=self.model_name,
+                top_n=self.top_n,
+                dashscope_api_key=settings.dashscope_api_key
+            )
+        return self._reranker
     
     async def rerank(
         self,
@@ -69,123 +75,49 @@ class BGEReranker:
         if not documents:
             return []
         
-        # 在线程池中执行模型推理
+        from langchain_core.documents import Document as LCDocument
+        
+        # 转换为 LangChain Document 格式
+        lc_docs = [
+            LCDocument(
+                page_content=d.get("content", ""),
+                metadata=d.get("metadata", {})
+            )
+            for d in documents
+        ]
+        
+        # 在线程池中执行（reranker.compress_documents 是同步方法）
         loop = asyncio.get_event_loop()
-        scores = await loop.run_in_executor(
+        reranker = self._get_reranker()
+        
+        # 动态设置 top_n
+        if top_k:
+            reranker.top_n = top_k
+        
+        compressed_docs = await loop.run_in_executor(
             None,
-            lambda: self._compute_scores(query, [d.get("content", "") for d in documents])
+            lambda: reranker.compress_documents(lc_docs, query)
         )
         
         # 构建结果
         results = []
-        for i, (doc, score) in enumerate(zip(documents, scores)):
+        for i, doc in enumerate(compressed_docs):
+            score = doc.metadata.get("relevance_score", 0.0)
+            
             if score_threshold is not None and score < score_threshold:
                 continue
             
-            results.append(RerankResult(
-                content=doc.get("content", ""),
-                score=score,
-                original_index=i,
-                metadata=doc.get("metadata", {})
-            ))
-        
-        # 按分数排序
-        results.sort(key=lambda x: x.score, reverse=True)
-        
-        # 截取 top_k
-        if top_k:
-            results = results[:top_k]
-        
-        return results
-    
-    def _compute_scores(self, query: str, documents: List[str]) -> List[float]:
-        """计算重排序分数"""
-        import torch
-        
-        self._load_model()
-        
-        # 构建输入对
-        pairs = [[query, doc] for doc in documents]
-        
-        with torch.no_grad():
-            inputs = self._tokenizer(
-                pairs,
-                padding=True,
-                truncation=True,
-                max_length=512,
-                return_tensors="pt"
+            # 查找原始索引
+            original_idx = next(
+                (j for j, d in enumerate(documents) if d.get("content") == doc.page_content),
+                i
             )
             
-            if torch.cuda.is_available():
-                inputs = {k: v.cuda() for k, v in inputs.items()}
-            
-            outputs = self._model(**inputs)
-            scores = outputs.logits.squeeze(-1).float()
-            
-            # 转换为概率（sigmoid）
-            scores = torch.sigmoid(scores).cpu().tolist()
-        
-        if isinstance(scores, float):
-            scores = [scores]
-        
-        return scores
-
-
-class CrossEncoderReranker:
-    """
-    基于 sentence-transformers CrossEncoder 的 Reranker
-    
-    更简单的实现，兼容性更好。
-    """
-    
-    def __init__(self, model_name: str = "cross-encoder/ms-marco-MiniLM-L-6-v2"):
-        self.model_name = model_name
-        self._model = None
-    
-    def _load_model(self):
-        if self._model is None:
-            from sentence_transformers import CrossEncoder
-            self._model = CrossEncoder(self.model_name)
-    
-    async def rerank(
-        self,
-        query: str,
-        documents: List[dict],
-        top_k: Optional[int] = None,
-        score_threshold: Optional[float] = None
-    ) -> List[RerankResult]:
-        """重排序"""
-        if not documents:
-            return []
-        
-        loop = asyncio.get_event_loop()
-        scores = await loop.run_in_executor(
-            None,
-            lambda: self._compute_scores(query, [d.get("content", "") for d in documents])
-        )
-        
-        results = []
-        for i, (doc, score) in enumerate(zip(documents, scores)):
-            if score_threshold is not None and score < score_threshold:
-                continue
-            
             results.append(RerankResult(
-                content=doc.get("content", ""),
-                score=float(score),
-                original_index=i,
-                metadata=doc.get("metadata", {})
+                content=doc.page_content,
+                score=score,
+                original_index=original_idx,
+                metadata=doc.metadata
             ))
         
-        results.sort(key=lambda x: x.score, reverse=True)
-        
-        if top_k:
-            results = results[:top_k]
-        
         return results
-    
-    def _compute_scores(self, query: str, documents: List[str]) -> List[float]:
-        """计算分数"""
-        self._load_model()
-        pairs = [(query, doc) for doc in documents]
-        scores = self._model.predict(pairs)
-        return scores.tolist() if hasattr(scores, 'tolist') else list(scores)
