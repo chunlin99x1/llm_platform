@@ -18,7 +18,7 @@ from database.models import KnowledgeBase, Document, DocumentSegment
 from core.rag.chunker import DocumentChunker
 from core.rag.embedding import EmbeddingService
 from core.rag.db_conn import get_weaviate_client
-from core.rag.retriever import HybridRetriever, RetrievalConfig, RetrievalMode
+from core.rag.retriever import WeaviateHybridRetriever, RetrievalMode
 from core.rag.reranker import DashScopeReranker
 # 在文件顶部添加日志配置
 logger = logging.getLogger(__name__)
@@ -380,30 +380,26 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
         provider=kb.embedding_provider,
         model=kb.embedding_model
     )
-    retriever = HybridRetriever(weaviate, embedding)
 
     # 确定检索模式
     mode_str = payload.retrieval_mode or kb.retrieval_mode
-    mode = RetrievalMode(mode_str)
 
-    # 检索配置
-    config = RetrievalConfig(
-        mode=mode,
+    collection_name = f"kb_{kb_id}"
+    
+    retriever = WeaviateHybridRetriever(
+        weaviate_client=weaviate,
+        embedding_service=embedding,
+        collection_name=collection_name,
+        mode=mode_str,
         top_k=payload.top_k,
         alpha=payload.alpha,
         score_threshold=payload.score_threshold,
         filters=payload.filters
     )
 
-    collection_name = f"kb_{kb_id}"
-
     try:
         # 执行检索
-        results = await retriever.retrieve(
-            query=payload.query,
-            collection_name=collection_name,
-            config=config
-        )
+        results = await retriever.retrieve_raw(query=payload.query)
 
         # Rerank
         if payload.rerank and results:
@@ -902,27 +898,25 @@ async def hit_testing(kb_id: int, payload: HitTestingRequest):
         provider=kb.embedding_provider,
         model=kb.embedding_model
     )
-    retriever = HybridRetriever(weaviate, embedding)
-
+    
     mode_str = payload.retrieval_mode or kb.retrieval_mode
-    mode = RetrievalMode(mode_str)
 
-    config = RetrievalConfig(
-        mode=mode,
+    collection_name = f"kb_{kb_id}"
+    
+    retriever = WeaviateHybridRetriever(
+        weaviate_client=weaviate,
+        embedding_service=embedding,
+        collection_name=collection_name,
+        mode=mode_str,
         top_k=payload.top_k,
         score_threshold=payload.score_threshold
     )
 
-    collection_name = f"kb_{kb_id}"
     # ✅ 修复：在 try 之前初始化变量，确保无论是否报错，变量都存在
     final_results = []
 
     try:
-        results = await retriever.retrieve(
-            query=payload.query,
-            collection_name=collection_name,
-            config=config
-        )
+        results = await retriever.retrieve_raw(query=payload.query)
         
         # DEBUG: 打印原始检索结果
         print(f"[HIT_TESTING DEBUG] Query: {payload.query}")

@@ -266,18 +266,20 @@ class WeaviateClient:
         meta = obj.metadata
 
         # 统一处理分数
-        score = 0.0
-        distance = 0.0
+        score = None
+        distance = None
 
         if meta:
-            if hasattr(meta, 'score'):  # BM25 / Hybrid
+            # BM25 / Hybrid 返回 score
+            if hasattr(meta, 'score') and meta.score is not None:
                 score = meta.score
-            if hasattr(meta, 'distance'):  # Vector
+            # Vector 返回 distance
+            if hasattr(meta, 'distance') and meta.distance is not None:
                 distance = meta.distance
                 # 将距离转换为相似度分数 (0~1)
                 # Cosine distance ranges usually from 0 to 2.
                 # Common normalization: 1 / (1 + distance)
-                if score == 0.0 and distance is not None:
+                if score is None:
                     score = 1.0 / (1.0 + distance)
 
         return SearchResult(
@@ -354,9 +356,11 @@ class WeaviateClient:
                 filters=weaviate_filter,
                 return_metadata=MetadataQuery(distance=True),
             )
+            print(f"[VECTOR_SEARCH DEBUG] Collection: {collection_name}, Results: {len(response.objects)}")
             return [self._parse_result(obj) for obj in response.objects]
         except Exception as e:
             logger.error(f"Vector search failed: {e}")
+            print(f"[VECTOR_SEARCH DEBUG] Error: {e}")
             return []
 
     # ============================
@@ -381,9 +385,11 @@ class WeaviateClient:
                 filters=weaviate_filter,
                 return_metadata=MetadataQuery(score=True),
             )
+            print(f"[BM25_SEARCH DEBUG] Collection: {collection_name}, Query: {query}, Results: {len(response.objects)}")
             return [self._parse_result(obj) for obj in response.objects]
         except Exception as e:
             logger.error(f"BM25 search failed: {e}")
+            print(f"[BM25_SEARCH DEBUG] Error: {e}")
             return []
 
     # ============================
