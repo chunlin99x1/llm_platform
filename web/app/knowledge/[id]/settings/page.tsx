@@ -3,9 +3,6 @@
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import {
-    Card,
-    CardBody,
-    CardHeader,
     Button,
     Input,
     Textarea,
@@ -14,10 +11,8 @@ import {
     DropdownMenu,
     DropdownItem,
     Spinner,
-    Divider,
-    addToast,
 } from "@heroui/react";
-import { Settings, Save, ChevronDown } from "lucide-react";
+import { Save, ChevronDown, User, FileText, Database, Sliders } from "lucide-react";
 
 interface KnowledgeBase {
     id: number;
@@ -33,9 +28,9 @@ interface KnowledgeBase {
 }
 
 const retrievalModes = [
-    { key: "hybrid", label: "混合检索", description: "结合语义和关键词检索" },
-    { key: "semantic", label: "语义检索", description: "基于向量相似度检索" },
-    { key: "keyword", label: "关键词检索", description: "基于 BM25 关键词匹配" },
+    { key: "hybrid", label: "混合检索", description: "结合语义和关键词" },
+    { key: "semantic", label: "语义检索", description: "向量相似度" },
+    { key: "keyword", label: "关键词检索", description: "BM25" },
 ];
 
 export default function SettingsPage() {
@@ -46,7 +41,6 @@ export default function SettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    // 表单状态
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [retrievalMode, setRetrievalMode] = useState("hybrid");
@@ -102,138 +96,134 @@ export default function SettingsPage() {
 
     if (loading) {
         return (
-            <div className="flex items-center justify-center py-20">
+            <div className="h-full flex items-center justify-center">
                 <Spinner size="lg" />
             </div>
         );
     }
 
-    if (!kb) {
-        return (
-            <div className="flex items-center justify-center py-20">
-                <p>知识库不存在</p>
-            </div>
-        );
-    }
+    if (!kb) return null;
 
     const selectedMode = retrievalModes.find(m => m.key === retrievalMode);
 
     return (
-        <div className="max-w-2xl space-y-6">
-            <div>
-                <h2 className="text-xl font-bold">知识库设置</h2>
-                <p className="text-sm text-foreground-500">管理知识库的基本信息和检索配置</p>
-            </div>
+        <div className="h-full overflow-y-auto bg-gray-50 dark:bg-gray-900 p-8">
+            <div className="max-w-3xl mx-auto space-y-6 pb-20">
+                <div className="mb-6">
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">设置</h2>
+                    <p className="text-sm text-gray-500 mt-1">配置知识库的基本信息和检索策略。</p>
+                </div>
 
-            {/* 基本信息 */}
-            <Card>
-                <CardHeader className="pb-0">
-                    <span className="font-semibold">基本信息</span>
-                </CardHeader>
-                <CardBody className="space-y-4">
-                    <Input
-                        label="名称"
-                        placeholder="输入知识库名称"
-                        value={name}
-                        onValueChange={setName}
-                        variant="bordered"
-                    />
-                    <Textarea
-                        label="描述"
-                        placeholder="输入知识库描述（可选）"
-                        value={description}
-                        onValueChange={setDescription}
-                        variant="bordered"
-                    />
-                </CardBody>
-            </Card>
-
-            {/* 嵌入模型 */}
-            <Card>
-                <CardHeader className="pb-0">
-                    <span className="font-semibold">嵌入模型</span>
-                </CardHeader>
-                <CardBody>
-                    <div className="p-4 rounded-lg bg-content2">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="font-medium">{kb.embedding_provider}</p>
-                                <p className="text-sm text-foreground-500">
-                                    {kb.embedding_model || "默认模型"}
-                                </p>
-                            </div>
-                            <div className="text-xs text-foreground-400">
-                                创建后不可更改
-                            </div>
-                        </div>
+                {/* 基本信息 */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                        <User size={18} className="text-gray-400" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">基本信息</h3>
                     </div>
-                </CardBody>
-            </Card>
+                    <div className="p-6 space-y-5">
+                        <Input
+                            label="名称"
+                            placeholder="输入知识库名称"
+                            value={name}
+                            onValueChange={setName}
+                            labelPlacement="outside"
+                            variant="bordered"
+                            classNames={{
+                                label: "text-sm font-medium text-gray-700 mb-1",
+                                inputWrapper: "border-gray-300"
+                            }}
+                        />
+                        <Textarea
+                            label="描述"
+                            placeholder="输入描述（可选）"
+                            value={description}
+                            onValueChange={setDescription}
+                            labelPlacement="outside"
+                            variant="bordered"
+                            minRows={3}
+                            classNames={{
+                                label: "text-sm font-medium text-gray-700 mb-1",
+                                inputWrapper: "border-gray-300"
+                            }}
+                        />
+                    </div>
+                </div>
 
-            {/* 检索设置 */}
-            <Card>
-                <CardHeader className="pb-0">
-                    <span className="font-semibold">检索设置</span>
-                </CardHeader>
-                <CardBody className="space-y-4">
-                    <div>
-                        <label className="text-sm font-medium block mb-2">检索模式</label>
-                        <Dropdown>
-                            <DropdownTrigger>
-                                <Button
-                                    variant="bordered"
-                                    className="w-full justify-between"
-                                    endContent={<ChevronDown size={16} />}
-                                >
-                                    <div className="text-left">
-                                        <div>{selectedMode?.label}</div>
-                                        <div className="text-xs text-foreground-500">
-                                            {selectedMode?.description}
+                {/* 检索配置 */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                        <Sliders size={18} className="text-gray-400" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">检索配置</h3>
+                    </div>
+                    <div className="p-6">
+                        <div className="flex flex-col gap-2">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">默认检索模式</label>
+                            <Dropdown>
+                                <DropdownTrigger>
+                                    <Button
+                                        variant="bordered"
+                                        size="md"
+                                        className="w-full justify-between text-left h-10 border-gray-300"
+                                        endContent={<ChevronDown size={16} className="text-gray-400" />}
+                                    >
+                                        <div className="flex flex-col items-start text-sm">
+                                            {selectedMode?.label}
                                         </div>
-                                    </div>
-                                </Button>
-                            </DropdownTrigger>
-                            <DropdownMenu onAction={(key) => setRetrievalMode(key as string)}>
-                                {retrievalModes.map(mode => (
-                                    <DropdownItem key={mode.key} description={mode.description}>
-                                        {mode.label}
-                                    </DropdownItem>
-                                ))}
-                            </DropdownMenu>
-                        </Dropdown>
-                    </div>
-                </CardBody>
-            </Card>
-
-            {/* 统计信息 */}
-            <Card>
-                <CardHeader className="pb-0">
-                    <span className="font-semibold">统计信息</span>
-                </CardHeader>
-                <CardBody>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-lg bg-content2">
-                            <p className="text-2xl font-bold">{kb.document_count}</p>
-                            <p className="text-sm text-foreground-500">文档数</p>
-                        </div>
-                        <div className="p-4 rounded-lg bg-content2">
-                            <p className="text-2xl font-bold">{kb.word_count.toLocaleString()}</p>
-                            <p className="text-sm text-foreground-500">总字符数</p>
+                                    </Button>
+                                </DropdownTrigger>
+                                <DropdownMenu onAction={(key) => setRetrievalMode(key as string)}>
+                                    {retrievalModes.map(mode => (
+                                        <DropdownItem key={mode.key} description={mode.description}>
+                                            {mode.label}
+                                        </DropdownItem>
+                                    ))}
+                                </DropdownMenu>
+                            </Dropdown>
+                            <p className="text-xs text-gray-500 mt-1">此模式将作为该知识库被引用时的默认检索策略。</p>
                         </div>
                     </div>
-                </CardBody>
-            </Card>
+                </div>
 
-            {/* 保存按钮 */}
-            <div className="flex justify-end">
-                <Button
-                    color="primary"
-                    startContent={<Save size={16} />}
-                    onPress={handleSave}
-                    isLoading={saving}
-                >
-                    保存设置
-                </Button>
+                {/* 技术参数（只读） */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                        <Database size={18} className="text-gray-400" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">技术参数</h3>
+                    </div>
+                    <div className="p-6">
+                        <div className="grid grid-cols-2 gap-6">
+                            <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
+                                <span className="text-xs text-gray-500 block mb-1">嵌入模型 (Embedding)</span>
+                                <div className="font-medium text-sm text-gray-900">{kb.embedding_provider}</div>
+                                <div className="text-xs text-gray-400 mt-0.5">{kb.embedding_model || "Default"}</div>
+                            </div>
+                            <div className="p-4 rounded-lg bg-gray-50 border border-gray-100">
+                                <span className="text-xs text-gray-500 block mb-1">当前数据量</span>
+                                <div className="flex items-baseline gap-1">
+                                    <span className="font-mono font-medium text-gray-900">{kb.document_count}</span>
+                                    <span className="text-xs text-gray-500">文档</span>
+                                </div>
+                                <div className="flex items-baseline gap-1 mt-0.5">
+                                    <span className="font-mono font-medium text-gray-900">{kb.word_count.toLocaleString()}</span>
+                                    <span className="text-xs text-gray-500">字符</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* 保存按钮 */}
+                <div className="flex justify-end pt-4">
+                    <Button
+                        size="md"
+                        className="bg-[#155EEF] text-white px-8 font-medium shadow-md shadow-blue-500/20"
+                        startContent={<Save size={16} />}
+                        onPress={handleSave}
+                        isLoading={saving}
+                    >
+                        保存更改
+                    </Button>
+                </div>
             </div>
         </div>
     );

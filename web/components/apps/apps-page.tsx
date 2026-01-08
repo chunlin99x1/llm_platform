@@ -2,11 +2,7 @@
 
 import {
   Button,
-  Card,
-  CardBody,
   Input,
-  Select,
-  SelectItem,
   Tabs,
   Tab,
   Modal,
@@ -14,14 +10,14 @@ import {
   ModalHeader,
   ModalBody,
   ModalFooter,
-  useDisclosure
+  useDisclosure,
+  Card,
+  CardBody
 } from "@heroui/react";
 import { LayoutGrid, MessageSquare, Terminal, Plus, Search, Filter } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
-
+import { useEffect, useState } from "react";
 import { createApp, listApps } from "@/lib/api";
 import type { AppItem } from "@/lib/types";
-
 import AppCard from "./app-card";
 
 export default function AppsPage() {
@@ -75,27 +71,24 @@ export default function AppsPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-background text-xs">
-      <header className="flex flex-col gap-4 px-6 py-4 bg-white border-b border-divider/60">
+    <div className="flex-1 flex flex-col min-h-0 bg-gray-50 dark:bg-gray-900">
+      <header className="flex flex-col gap-4 px-12 py-6 bg-gray-50 dark:bg-gray-900">
         <div className="flex items-center justify-between">
-          <div className="flex flex-col gap-0.5">
-            <h1 className="text-lg font-black tracking-tight text-foreground-800">应用空间</h1>
-            <p className="text-[11px] font-medium text-foreground">
-              您可以从零开始创建一个应用，或者基于已有的模板快速起步。
-            </p>
-          </div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">应用空间</h1>
           <Button
             color="primary"
-            size="sm"
-            startContent={<Plus size={14} />}
+            className="px-4 font-medium rounded-lg text-sm bg-[#155EEF] hover:bg-[#155EEF]/90 text-white"
+            startContent={<Plus size={16} />}
             onPress={onOpen}
-            className="font-bold px-4 shadow-md shadow-primary/20 rounded-xl h-8 text-[11px]"
           >
             创建应用
           </Button>
         </div>
+        <div className="text-sm text-gray-500 max-w-4xl">
+          Dify 能够根据不同的应用场景，构建不同类型的应用。
+        </div>
 
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mt-2">
           <Tabs
             variant="underlined"
             aria-label="Categories"
@@ -103,9 +96,9 @@ export default function AppsPage() {
             onSelectionChange={(k) => setSelectedCategory(k as string)}
             classNames={{
               tabList: "gap-6 p-0 border-b-0",
-              cursor: "w-full bg-primary h-[2px] rounded-t-full",
-              tab: "max-w-fit px-0 h-8",
-              tabContent: "group-data-[selected=true]:text-primary group-data-[selected=true]:font-bold text-[11px] text-foreground"
+              cursor: "w-full bg-[#155EEF] h-[2px]",
+              tab: "max-w-fit px-0 h-9",
+              tabContent: "group-data-[selected=true]:text-[#155EEF] group-data-[selected=true]:font-semibold text-sm text-gray-500"
             }}
           >
             <Tab key="all" title="全部应用" />
@@ -114,48 +107,41 @@ export default function AppsPage() {
             <Tab key="agent" title="Agent" />
           </Tabs>
 
-          <div className="flex items-center gap-3 w-full md:w-[300px]">
+          <div className="flex items-center gap-3 w-full md:w-[240px]">
             <Input
-              placeholder="在您的应用库中搜索..."
+              placeholder="搜索应用"
               variant="bordered"
               radius="lg"
-              size="sm"
-              startContent={<Search size={14} className="text-foreground-300" />}
+              size="md" // Dify 的搜索框其实不小
+              startContent={<Search size={16} className="text-gray-400" />}
               value={searchQuery}
               onValueChange={setSearchQuery}
               classNames={{
-                inputWrapper: "h-8 bg-content2/10 border-divider/80 hover:border-primary/40 transition-all font-medium",
-                input: "text-[11px] placeholder:text-[10px]"
+                inputWrapper: "h-9 bg-white border-gray-200 hover:border-gray-300 transition-all shadow-sm",
+                input: "text-sm placeholder:text-gray-400"
               }}
             />
-            <Button isIconOnly variant="flat" radius="lg" size="sm" className="h-8 w-8 bg-content2/20 text-foreground-500">
-              <Filter size={14} />
-            </Button>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-auto px-6 py-6">
-        <div className="max-w-[1600px] mx-auto">
+      <div className="flex-1 overflow-auto px-12 pb-6">
+        <div className="max-w-full">
           {apps.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {apps.map((a) => (
                 <AppCard key={a.id} app={a} />
               ))}
             </div>
           ) : (
-            <div className="flex h-[300px] flex-col items-center justify-center gap-4 text-foreground/30">
-              <div className="relative">
-                <LayoutGrid size={48} strokeWidth={1} />
-                <Search size={20} className="absolute -right-1 -bottom-1 text-primary opacity-50" />
+            <div className="flex h-[400px] flex-col items-center justify-center gap-4 text-gray-300">
+              <div className="bg-gray-100 p-4 rounded-full">
+                <LayoutGrid size={32} strokeWidth={1.5} className="text-gray-400" />
               </div>
               <div className="flex flex-col items-center gap-1">
-                <div className="text-[11px] font-bold text-foreground-500">空空如也</div>
-                <div className="text-[10px]">没有找到与您的检索条件相匹配的应用</div>
+                <div className="text-sm font-medium text-gray-600">这里什么都没有</div>
+                <div className="text-xs text-gray-400">去创建一个新的应用吧</div>
               </div>
-              <Button variant="light" color="primary" size="sm" className="font-bold underline text-[11px]" onPress={() => { setSearchQuery(""); setSelectedCategory("all") }}>
-                重置过滤条件
-              </Button>
             </div>
           )}
         </div>
@@ -165,91 +151,79 @@ export default function AppsPage() {
         isOpen={isOpen}
         onOpenChange={onOpenChange}
         size="2xl"
-        backdrop="blur"
         classNames={{
-          base: "bg-white rounded-[24px] p-1",
-          header: "px-6 pt-6 pb-0",
-          body: "px-6 py-6",
-          footer: "px-6 pb-6 pt-0 border-0"
+          base: "bg-white rounded-2xl",
+          header: "px-8 pt-8 pb-4",
+          body: "px-8 pb-8",
         }}
       >
         <ModalContent>
           {(onClose) => (
             <>
               <ModalHeader className="flex flex-col gap-1">
-                <h2 className="text-base font-black text-foreground-800">构建新应用</h2>
-                <p className="text-[10px] font-medium text-foreground">选择一种模式来开始您的 AI 创作之旅。</p>
+                <h2 className="text-xl font-semibold text-gray-900">创建应用</h2>
+                <p className="text-sm text-gray-500 font-normal">选择应用类型并开始构建</p>
               </ModalHeader>
               <ModalBody className="gap-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-3 gap-4">
                   {[
-                    { id: 'workflow', label: 'Workflow', sub: '复杂自动化流程', icon: LayoutGrid, color: 'primary' },
-                    { id: 'chatflow', label: 'Chatflow', sub: '对话式逻辑体验', icon: MessageSquare, color: 'warning' },
-                    { id: 'agent', label: 'Agent', sub: '自主决策智能代理', icon: Terminal, color: 'secondary' },
+                    { id: 'workflow', label: '工作流', sub: '针对流程化任务', icon: LayoutGrid, color: 'text-blue-600', bg: 'bg-blue-50' },
+                    { id: 'chatflow', label: '聊天助手', sub: '基于 LLM 的对话', icon: MessageSquare, color: 'text-violet-600', bg: 'bg-violet-50' },
+                    { id: 'agent', label: 'Agent', sub: '自主任务执行', icon: Terminal, color: 'text-amber-600', bg: 'bg-amber-50' },
                   ].map((item) => (
-                    <Card
+                    <div
                       key={item.id}
-                      isPressable
-                      className={`border-1.5 transition-all duration-300 rounded-[16px] shadow-sm hover:shadow-md group ${newMode === item.id ? `border-${item.color} bg-${item.color}/5 ring-2 ring-${item.color}/10` : 'border-divider/50 bg-background hover:border-primary/30'}`}
-                      onPress={() => setNewMode(item.id)}
+                      className={`cursor-pointer rounded-xl border p-4 transition-all hover:shadow-md ${newMode === item.id ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/30' : 'border-gray-200 hover:border-blue-200'}`}
+                      onClick={() => setNewMode(item.id)}
                     >
-                      <CardBody className="flex flex-col items-center gap-2.5 text-center p-4">
-                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center transition-transform duration-500 group-hover:scale-110 bg-${item.color}/10 text-${item.color}`}>
-                          <item.icon size={18} />
-                        </div>
-                        <div className="flex flex-col gap-0.5">
-                          <div className="font-black text-[11px]">{item.label}</div>
-                          <div className="text-[9px] font-medium text-foreground leading-tight px-1">{item.sub}</div>
-                        </div>
-                      </CardBody>
-                    </Card>
+                      <div className={`mb-3 h-8 w-8 rounded-lg flex items-center justify-center ${item.bg} ${item.color}`}>
+                        <item.icon size={18} />
+                      </div>
+                      <div className="font-semibold text-sm text-gray-900">{item.label}</div>
+                      <div className="text-xs text-gray-500 mt-1">{item.sub}</div>
+                    </div>
                   ))}
                 </div>
 
-                <div className="flex flex-col gap-4 pt-2">
+                <div className="flex flex-col gap-4">
                   <Input
                     label="应用名称"
                     labelPlacement="outside"
-                    placeholder="例如：论文阅读助手..."
+                    placeholder="给你的应用起个名字"
                     variant="bordered"
-                    radius="lg"
-                    size="sm"
+                    radius="md"
                     value={newName}
                     onValueChange={setNewName}
                     classNames={{
-                      inputWrapper: "h-9 border-divider/80 focus-within:!border-primary/50 transition-all px-4",
-                      label: "font-black text-foreground-600 mb-0.5 ml-1 text-[11px]",
-                      input: "text-[11px]"
+                      inputWrapper: "h-10 border-gray-300",
+                      label: "text-sm font-medium text-gray-700 mb-1"
                     }}
                   />
                   <Input
-                    label="应用描述 (可选)"
+                    label="描述"
                     labelPlacement="outside"
-                    placeholder="简要描述一下您的应用能做什么"
+                    placeholder="描述应用的功能"
                     variant="bordered"
-                    radius="lg"
-                    size="sm"
+                    radius="md"
                     classNames={{
-                      inputWrapper: "h-9 border-divider/80 focus-within:!border-primary/50 transition-all px-4",
-                      label: "font-black text-foreground-600 mb-0.5 ml-1 text-[11px]",
-                      input: "text-[11px]"
+                      inputWrapper: "h-10 border-gray-300",
+                      label: "text-sm font-medium text-gray-700 mb-1"
                     }}
                   />
                 </div>
               </ModalBody>
-              <ModalFooter>
-                <Button variant="light" size="sm" className="font-bold text-foreground-500 px-5 h-8 text-[11px]" onPress={onClose}>
+              <ModalFooter className="px-8 pb-8 pt-0 border-0">
+                <Button variant="light" onPress={onClose} className="font-medium text-gray-600">
                   取消
                 </Button>
                 <Button
                   color="primary"
-                  size="sm"
-                  className="font-black px-6 shadow-md shadow-primary/20 rounded-xl h-8 text-[11px]"
+                  className="bg-[#155EEF] font-medium"
+                  onPress={handleCreate}
                   isLoading={creating}
                   isDisabled={!newName.trim()}
-                  onPress={handleCreate}
                 >
-                  立即开启
+                  创建
                 </Button>
               </ModalFooter>
             </>

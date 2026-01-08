@@ -3,17 +3,8 @@
 import { useState, useEffect } from "react";
 import { useParams, usePathname } from "next/navigation";
 import Link from "next/link";
-import {
-    Button,
-    Spinner,
-} from "@heroui/react";
-import {
-    Database,
-    FileText,
-    Search,
-    Settings,
-    ArrowLeft,
-} from "lucide-react";
+import { Button, Spinner } from "@heroui/react";
+import { Database, FileText, Search, Settings, ChevronLeft } from "lucide-react";
 
 interface KnowledgeBase {
     id: number;
@@ -64,12 +55,11 @@ export default function KnowledgeDetailLayout({
         }
     }
 
-    // 确定当前激活的 tab
     const activeKey = navItems.find((item) => pathname.includes(item.href))?.key || "documents";
 
     if (loading) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
+            <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
                 <Spinner size="lg" />
             </div>
         );
@@ -77,66 +67,63 @@ export default function KnowledgeDetailLayout({
 
     if (!kb) {
         return (
-            <div className="min-h-screen flex items-center justify-center">
-                <p>知识库不存在</p>
+            <div className="h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+                <p className="text-gray-500">知识库不存在</p>
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
+        <div className="flex flex-col h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
             {/* Header */}
-            <div className="border-b border-divider bg-background/80 backdrop-blur-md sticky top-0 z-10">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <div className="flex items-center gap-4">
-                        <Link href="/knowledge">
-                            <Button isIconOnly variant="light" size="sm">
-                                <ArrowLeft size={18} />
-                            </Button>
-                        </Link>
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-                                <Database className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                                <h1 className="text-lg font-bold">{kb.name}</h1>
-                                <p className="text-xs text-foreground-500">
-                                    {kb.document_count} 文档 · {kb.word_count.toLocaleString()} 字符
-                                </p>
-                            </div>
+            <div className="flex-shrink-0 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 z-10">
+                <div className="px-5 h-14 flex items-center gap-3 w-full">
+                    <Button as={Link} href="/knowledge" isIconOnly variant="light" size="sm" className="text-foreground h-8 w-8 -ml-2">
+                        <ChevronLeft size={16} />
+                    </Button>
+                    <div className="w-8 h-8 rounded-lg bg-[#FFF2F2] border border-[#FFE4E4] flex items-center justify-center flex-shrink-0">
+                        <span className="text-base">📙</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h1 className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-[200px]">{kb.name}</h1>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 uppercase">文本数据</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            {/* Main Content */}
-            <div className="max-w-7xl mx-auto flex">
+            {/* Main Content Area - Full Width & Height */}
+            <div className="flex flex-1 min-h-0 w-full">
                 {/* Sidebar */}
-                <div className="w-48 border-r border-divider min-h-[calc(100vh-73px)] p-4 space-y-1">
+                <div className="w-[200px] flex-shrink-0 border-r border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900 overflow-y-auto py-4 px-3 space-y-1">
+                    <div className="mb-2 px-3 text-xs font-medium text-gray-500">配置</div>
                     {navItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = activeKey === item.key;
                         return (
-                            <Link
-                                key={item.key}
-                                href={`/knowledge/${kbId}/${item.href}`}
-                            >
+                            <Link key={item.key} href={`/knowledge/${kbId}/${item.href}`} className="block">
                                 <div
-                                    className={`flex items-center gap-3 px-3 py-2.5 rounded-lg cursor-pointer transition-colors ${isActive
-                                            ? "bg-primary/10 text-primary font-medium"
-                                            : "hover:bg-content2 text-foreground-600"
+                                    className={`flex items-center gap-2.5 px-3 py-2 rounded-lg text-[13px] cursor-pointer transition-all ${isActive
+                                        ? "bg-white shadow-sm border border-gray-200/60 text-[#155EEF] font-medium"
+                                        : "text-gray-600 hover:bg-gray-200/50 hover:text-gray-900"
                                         }`}
                                 >
-                                    <Icon size={18} />
-                                    <span className="text-sm">{item.label}</span>
+                                    <Icon size={16} className={isActive ? "text-[#155EEF]" : "text-gray-500"} />
+                                    <span>{item.label}</span>
                                 </div>
                             </Link>
                         );
                     })}
                 </div>
 
-                {/* Content */}
-                <div className="flex-1 p-6">{children}</div>
+                {/* Content Panel */}
+                <div className="flex-1 overflow-hidden bg-white dark:bg-gray-900 flex flex-col">
+                    {/* Inner content scroll area */}
+                    <div className="flex-1 h-full overflow-y-auto">
+                        {children}
+                    </div>
+                </div>
             </div>
         </div>
     );

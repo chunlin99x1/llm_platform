@@ -4,21 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import {
-    Table,
-    TableHeader,
-    TableColumn,
-    TableBody,
-    TableRow,
-    TableCell,
     Button,
     Input,
     Chip,
     Spinner,
     Progress,
-    Dropdown,
-    DropdownTrigger,
-    DropdownMenu,
-    DropdownItem,
     Pagination,
 } from "@heroui/react";
 import {
@@ -27,7 +17,6 @@ import {
     Trash2,
     FileText,
     RefreshCw,
-    MoreVertical,
     Eye,
     CheckCircle2,
     AlertCircle,
@@ -80,7 +69,6 @@ export default function DocumentsPage() {
         loadDocuments();
     }, [kbId, page]);
 
-    // 轮询更新正在索引的文档状态
     useEffect(() => {
         const indexingDocs = documents.filter(d => d.status === "indexing" || d.status === "pending");
         if (indexingDocs.length === 0) return;
@@ -175,35 +163,35 @@ export default function DocumentsPage() {
     const totalPages = Math.ceil(total / pageSize);
 
     return (
-        <div className="space-y-6">
+        <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-6">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
                 <div>
-                    <h2 className="text-xl font-bold">文档管理</h2>
-                    <p className="text-sm text-foreground-500">
-                        共 {total} 个文档
-                    </p>
+                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">文档</h2>
+                    <p className="text-xs text-gray-500 mt-1">{total} 个文档</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                        <Input
-                            placeholder="搜索文档..."
-                            value={keyword}
-                            onValueChange={setKeyword}
-                            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                            startContent={<Search size={16} className="text-foreground-400" />}
-                            size="sm"
-                            className="w-64"
-                        />
-                        <Button
-                            isIconOnly
-                            variant="flat"
-                            size="sm"
-                            onPress={() => loadDocuments()}
-                        >
-                            <RefreshCw size={16} />
-                        </Button>
-                    </div>
+                    <Input
+                        placeholder="搜索..."
+                        value={keyword}
+                        onValueChange={setKeyword}
+                        onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                        startContent={<Search size={14} className="text-gray-400" />}
+                        size="sm"
+                        className="w-56"
+                        classNames={{
+                            inputWrapper: "bg-white border text-sm"
+                        }}
+                    />
+                    <Button
+                        isIconOnly
+                        variant="flat"
+                        size="sm"
+                        className="w-9 h-9 bg-white border border-gray-200"
+                        onPress={() => loadDocuments()}
+                    >
+                        <RefreshCw size={14} className="text-gray-600" />
+                    </Button>
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -212,126 +200,140 @@ export default function DocumentsPage() {
                         onChange={handleUpload}
                     />
                     <Button
-                        color="primary"
-                        startContent={<Upload size={16} />}
+                        size="sm"
+                        className="bg-[#155EEF] text-white h-9 px-4 font-medium shadow-sm"
+                        startContent={<Upload size={14} />}
                         onPress={() => fileInputRef.current?.click()}
                         isLoading={uploading}
                     >
-                        上传文档
+                        上传文件
                     </Button>
                 </div>
             </div>
 
             {/* Upload Progress */}
             {uploading && (
-                <Progress
-                    value={uploadProgress}
-                    size="sm"
-                    color="primary"
-                    className="h-1"
-                />
+                <div className="mb-4">
+                    <Progress value={uploadProgress} size="sm" color="primary" className="h-1" />
+                </div>
             )}
 
-            {/* Documents Table */}
-            {loading ? (
-                <div className="flex items-center justify-center py-20">
-                    <Spinner size="lg" />
-                </div>
-            ) : documents.length === 0 ? (
-                <div className="flex flex-col items-center justify-center py-20 text-center">
-                    <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 dark:from-emerald-900/30 dark:to-teal-900/30 flex items-center justify-center mb-4">
-                        <FileText className="w-8 h-8 text-emerald-500" />
-                    </div>
-                    <h3 className="text-lg font-bold mb-2">还没有文档</h3>
-                    <p className="text-foreground-500 mb-4">
-                        上传文档开始构建知识库
-                    </p>
-                    <Button
-                        color="primary"
-                        startContent={<Upload size={16} />}
-                        onPress={() => fileInputRef.current?.click()}
-                    >
-                        上传第一个文档
-                    </Button>
-                </div>
-            ) : (
-                <>
-                    <Table aria-label="Documents table">
-                        <TableHeader>
-                            <TableColumn>文档名称</TableColumn>
-                            <TableColumn>状态</TableColumn>
-                            <TableColumn>分段数</TableColumn>
-                            <TableColumn>字符数</TableColumn>
-                            <TableColumn>创建时间</TableColumn>
-                            <TableColumn>操作</TableColumn>
-                        </TableHeader>
-                        <TableBody>
-                            {documents.map((doc) => {
-                                const status = statusConfig[doc.status] || statusConfig.pending;
-                                const StatusIcon = status.icon;
-                                return (
-                                    <TableRow key={doc.id}>
-                                        <TableCell>
-                                            <div className="flex items-center gap-2">
-                                                <FileText size={16} className="text-foreground-400" />
-                                                <span className="font-medium">{doc.name}</span>
+            {/* Documents Table Container */}
+            <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 flex flex-col overflow-hidden shadow-sm">
+                <div className="flex-1 overflow-auto">
+                    <table className="w-full text-sm">
+                        <thead className="bg-gray-50/80 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 backdrop-blur-sm">
+                            <tr>
+                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider">文档名称</th>
+                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-32">状态</th>
+                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-24">分段</th>
+                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-32">字符数</th>
+                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-40">创建时间</th>
+                                <th className="text-right px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-24">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {loading ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-20 text-center">
+                                        <div className="flex justify-center">
+                                            <Spinner size="lg" />
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : documents.length === 0 ? (
+                                <tr>
+                                    <td colSpan={6} className="px-6 py-20 text-center text-gray-500">
+                                        <div className="flex flex-col items-center gap-2">
+                                            <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center">
+                                                <FileText className="text-gray-300" size={24} />
                                             </div>
-                                        </TableCell>
-                                        <TableCell>
-                                            <Chip
-                                                size="sm"
-                                                color={status.color}
-                                                variant="flat"
-                                                startContent={
-                                                    <StatusIcon
-                                                        size={12}
-                                                        className={doc.status === "indexing" ? "animate-spin" : ""}
-                                                    />
-                                                }
-                                            >
-                                                {status.label}
-                                            </Chip>
-                                        </TableCell>
-                                        <TableCell>{doc.segment_count}</TableCell>
-                                        <TableCell>{doc.word_count.toLocaleString()}</TableCell>
-                                        <TableCell>
-                                            {new Date(doc.created_at).toLocaleDateString()}
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                <Link href={`/knowledge/${kbId}/documents/${doc.id}`}>
-                                                    <Button isIconOnly variant="light" size="sm">
-                                                        <Eye size={16} />
-                                                    </Button>
-                                                </Link>
-                                                <Button
-                                                    isIconOnly
-                                                    variant="light"
+                                            <span className="text-sm font-medium text-gray-600">暂无文档</span>
+                                            <span className="text-xs text-gray-400">点击右上角上传按钮添加文档</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ) : (
+                                documents.map((doc) => {
+                                    const status = statusConfig[doc.status] || statusConfig.pending;
+                                    const StatusIcon = status.icon;
+                                    return (
+                                        <tr key={doc.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors group">
+                                            <td className="px-6 py-3">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500">
+                                                        <FileText size={16} />
+                                                    </div>
+                                                    <span className="truncate text-gray-900 dark:text-white font-medium max-w-[300px]">{doc.name}</span>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <Chip
                                                     size="sm"
-                                                    onPress={() => deleteDocument(doc.id)}
+                                                    color={status.color}
+                                                    variant="flat"
+                                                    startContent={
+                                                        <StatusIcon
+                                                            size={12}
+                                                            className={doc.status === "indexing" ? "animate-spin" : ""}
+                                                        />
+                                                    }
+                                                    className="h-6 gap-1 px-2 border-0"
                                                 >
-                                                    <Trash2 size={16} className="text-danger" />
-                                                </Button>
-                                            </div>
-                                        </TableCell>
-                                    </TableRow>
-                                );
-                            })}
-                        </TableBody>
-                    </Table>
+                                                    {status.label}
+                                                </Chip>
+                                            </td>
+                                            <td className="px-6 py-3 text-gray-600 dark:text-gray-400 font-medium">
+                                                {doc.segment_count > 0 ? (
+                                                    <span className="bg-gray-100 px-2 py-0.5 rounded text-xs text-gray-600">{doc.segment_count}</span>
+                                                ) : "-"}
+                                            </td>
+                                            <td className="px-6 py-3 text-gray-600 dark:text-gray-400 font-mono text-xs">
+                                                {doc.word_count.toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-3 text-gray-500 text-xs">
+                                                {new Date(doc.created_at).toLocaleString()}
+                                            </td>
+                                            <td className="px-6 py-3 text-right">
+                                                <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                    <Link href={`/knowledge/${kbId}/documents/${doc.id}`}>
+                                                        <Button isIconOnly variant="light" size="sm" className="w-8 h-8 text-gray-500 hover:text-[#155EEF] hover:bg-blue-50">
+                                                            <Eye size={16} />
+                                                        </Button>
+                                                    </Link>
+                                                    <Button
+                                                        isIconOnly
+                                                        variant="light"
+                                                        size="sm"
+                                                        className="w-8 h-8 text-gray-500 hover:text-red-600 hover:bg-red-50"
+                                                        onPress={() => deleteDocument(doc.id)}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                    </Button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                            )}
+                        </tbody>
+                    </table>
+                </div>
 
-                    {/* Pagination */}
-                    {totalPages > 1 && (
-                        <div className="flex justify-center">
-                            <Pagination
-                                total={totalPages}
-                                page={page}
-                                onChange={setPage}
-                            />
-                        </div>
-                    )}
-                </>
-            )}
+                {totalPages > 1 && (
+                    <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-3 flex justify-center bg-gray-50/50">
+                        <Pagination
+                            total={totalPages}
+                            page={page}
+                            onChange={setPage}
+                            size="sm"
+                            classNames={{
+                                cursor: "bg-[#155EEF]"
+                            }}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

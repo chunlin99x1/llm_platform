@@ -1,37 +1,55 @@
 "use client";
 
 import { Card, CardBody, Chip } from "@heroui/react";
-import { LayoutGrid, MessageSquare, Terminal, ChevronRight } from "lucide-react";
+import { LayoutGrid, MessageSquare, Terminal, MoreHorizontal } from "lucide-react";
 import Link from "next/link";
-
 import type { AppItem } from "@/lib/types";
 
 export default function AppCard({ app }: { app: AppItem }) {
-  const Icon = app.mode === "workflow" ? LayoutGrid : app.mode === "agent" ? Terminal : MessageSquare;
-  const color = app.mode === "workflow" ? "primary" : app.mode === "agent" ? "secondary" : "warning";
+  // 定义颜色映射
+  const config = {
+    workflow: { icon: LayoutGrid, bg: "bg-blue-50", text: "text-blue-600", label: "Workflow" },
+    agent: { icon: Terminal, bg: "bg-amber-50", text: "text-amber-600", label: "Agent" },
+    chatflow: { icon: MessageSquare, bg: "bg-violet-50", text: "text-violet-600", label: "Chatflow" },
+  }[app.mode] || { icon: LayoutGrid, bg: "bg-gray-50", text: "text-gray-600", label: "App" };
+
+  const Icon = config.icon;
 
   return (
-    <Link href={`/apps/${app.id}/orchestrate`} className="group">
-      <Card className="hover:border-primary/50 transition-colors shadow-sm border border-divider rounded-xl">
-        <CardBody className="p-3 flex flex-row items-center gap-3">
-          <div className={`h-9 w-9 rounded-lg flex items-center justify-center bg-${color}/10 text-${color} shrink-0`}>
-            <Icon size={18} />
+    <Link href={`/apps/${app.id}/orchestrate`} className="block group h-full">
+      <div className="relative flex flex-col h-full bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-all duration-200 cursor-pointer">
+
+        {/* Header with Icon and Title */}
+        <div className="flex items-start gap-4 mb-3">
+          <div className={`shrink-0 w-10 h-10 rounded-lg ${config.bg} ${config.text} flex items-center justify-center`}>
+            <Icon size={20} />
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-1.5">
-              <span className="font-bold truncate text-[13px] text-foreground-800">{app.name}</span>
-              <Chip size="sm" variant="flat" color={color as any} className="h-4 px-1 text-[9px] uppercase font-bold min-w-0">
-                {app.mode}
-              </Chip>
-            </div>
-            <div className="text-[11px] text-foreground mt-0.5 line-clamp-1">
-              描述定义在这里，目前暂无...
+          <div className="flex-1 min-w-0 py-0.5">
+            <h3 className="text-sm font-semibold text-gray-900 truncate mb-1">
+              {app.name}
+            </h3>
+            <div className="flex items-center">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 uppercase tracking-wider">
+                {config.label}
+              </span>
             </div>
           </div>
-          <ChevronRight size={14} className="text-foreground-300 group-hover:text-primary transition-colors shrink-0" />
-        </CardBody>
-      </Card>
+        </div>
+
+        {/* Description */}
+        <div className="flex-1">
+          <p className="text-xs text-gray-500 line-clamp-2 leading-relaxed">
+            {app.description || "这个应用没有描述。"}
+          </p>
+        </div>
+
+        {/* Footer Actions (Hover only) */}
+        <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+          <button className="p-1 rounded-md text-gray-400 hover:bg-gray-100 hover:text-gray-600">
+            <MoreHorizontal size={16} />
+          </button>
+        </div>
+      </div>
     </Link>
   );
 }
-
