@@ -7,8 +7,22 @@ Author: chunlin
 """
 from .celery_app import celery_app
 from celery import states
-import asyncio
 from configs import get_settings
+from core.rag.db_conn import get_weaviate_client
+from core.utils import run_async
+
+
+async def update_document_status(document_id: int, status: str, segment_count: int = 0, error_message: str = None):
+    """更新文档状态"""
+    from database.models import Document
+    doc = await Document.get_or_none(id=document_id)
+    if doc:
+        doc.status = status
+        if segment_count > 0:
+            doc.segment_count = segment_count
+        if error_message:
+            doc.error_message = error_message
+        await doc.save()
 
 
 @celery_app.task(bind=True, name="index_document")
@@ -58,21 +72,14 @@ def index_document_task(
             "total_chunks": len(segments)
         })
 
-        # 2. 向量化（使用同步方式，因为 Celery 任务是同步的）
+        # 2. 向量化
         embedding = EmbeddingService(
             provider=embedding_provider,
             model=embedding_model
         )
 
         texts = [seg.content for seg in segments]
-
-        # 运行异步函数
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            vectors = loop.run_until_complete(embedding.embed_documents(texts))
-        finally:
-            loop.close()
+        vectors = run_async(embedding.embed_documents(texts))
 
         self.update_state(state="INDEXING", meta={
             "progress": 70,
@@ -81,32 +88,23 @@ def index_document_task(
         })
 
         # 3. 存储到 Weaviate
-        weaviate = WeaviateClient(
-            url=get_settings().weaviate_url,
-            api_key=get_settings().weaviate_api_key,
-        )
+        weaviate = get_weaviate_client()
         collection_name = f"kb_{knowledge_base_id}"
 
         try:
             documents_to_add = []
-            for seg in segments:
+            for i, seg in enumerate(segments):
                 documents_to_add.append({
                     "content": seg.content,
                     "doc_id": str(document_id),
                     "doc_name": filename,
                     "chunk_index": seg.position,
+                    "segment_id": i,
                     "knowledge_base_id": str(knowledge_base_id),
                     "source": filename,
                 })
 
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            try:
-                loop.run_until_complete(
-                    weaviate.add_documents(collection_name, documents_to_add, vectors)
-                )
-            finally:
-                loop.close()
+            run_async(weaviate.add_documents(collection_name, documents_to_add, vectors))
         finally:
             weaviate.close()
 
@@ -115,7 +113,7 @@ def index_document_task(
             "stage": "保存片段到数据库..."
         })
 
-        # 4. 保存片段到数据库（数据库连接已在 worker 启动时初始化）
+        # 4. 保存片段到数据库
         from database.models import DocumentSegment
 
         async def save_segments():
@@ -127,12 +125,14 @@ def index_document_task(
                     tokens=seg.tokens
                 )
 
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            loop.run_until_complete(save_segments())
-        finally:
-            loop.close()
+        run_async(save_segments())
+
+        # 5. 更新文档状态为完成
+        run_async(update_document_status(
+            document_id=document_id,
+            status="completed",
+            segment_count=len(segments)
+        ))
 
         return {
             "status": "success",
@@ -142,7 +142,15 @@ def index_document_task(
         }
 
     except Exception as e:
+        # 更新文档状态为失败
+        run_async(update_document_status(
+            document_id=document_id,
+            status="error",
+            error_message=str(e)
+        ))
+
         self.update_state(state=states.FAILURE, meta={
             "exc_type": type(e).__name__, "exc_message": str(e)
         })
         raise
+

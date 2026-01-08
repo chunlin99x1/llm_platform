@@ -25,7 +25,14 @@ class Document(Model):
     name = fields.CharField(max_length=255)
     content = fields.TextField()
     metadata = fields.JSONField(null=True)
+    # 索引状态: pending, indexing, completed, error
+    status = fields.CharField(max_length=32, default="pending")
+    word_count = fields.IntField(default=0)  # 字符数
+    segment_count = fields.IntField(default=0)  # 分段数
+    error_message = fields.TextField(null=True)  # 错误信息
+    indexing_task_id = fields.CharField(max_length=128, null=True)  # Celery 任务 ID
     created_at = fields.DatetimeField(auto_now_add=True)
+    updated_at = fields.DatetimeField(auto_now=True)
 
 
 class DocumentSegment(Model):

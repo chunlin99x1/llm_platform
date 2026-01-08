@@ -65,6 +65,95 @@ class QueryResponse(BaseModel):
     total: int
 
 
+class UpdateKnowledgeBaseRequest(BaseModel):
+    """更新知识库请求"""
+    name: Optional[str] = None
+    description: Optional[str] = None
+    embedding_provider: Optional[str] = None
+    embedding_model: Optional[str] = None
+    retrieval_mode: Optional[str] = None  # semantic, keyword, hybrid
+
+
+class KnowledgeBaseDetailResponse(BaseModel):
+    """知识库详情响应（包含更多字段）"""
+    id: int
+    name: str
+    description: Optional[str]
+    embedding_provider: str
+    embedding_model: Optional[str]
+    retrieval_mode: str
+    document_count: int
+    word_count: int  # 总字符数
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentResponse(BaseModel):
+    """文档响应"""
+    id: int
+    name: str
+    status: str  # pending, indexing, completed, error
+    word_count: int
+    segment_count: int
+    error_message: Optional[str]
+    indexing_task_id: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+
+class DocumentListResponse(BaseModel):
+    """文档列表响应"""
+    documents: List[DocumentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class SegmentResponse(BaseModel):
+    """分段响应"""
+    id: int
+    content: str
+    position: int
+    tokens: int
+    created_at: datetime
+
+
+class SegmentListResponse(BaseModel):
+    """分段列表响应"""
+    segments: List[SegmentResponse]
+    total: int
+    page: int
+    page_size: int
+
+
+class HitTestingRequest(BaseModel):
+    """召回测试请求"""
+    query: str
+    retrieval_mode: Optional[str] = None
+    top_k: int = 10
+    score_threshold: float = 0.0
+    rerank: bool = True
+    rerank_top_k: int = 5
+
+
+class HitTestingResult(BaseModel):
+    """召回测试结果"""
+    content: str
+    score: float
+    document_id: int
+    document_name: str
+    segment_id: int
+    position: int
+    word_count: int
+
+
+class HitTestingResponse(BaseModel):
+    """召回测试响应"""
+    query: str
+    results: List[HitTestingResult]
+    total: int
+
+
 # ============== API 端点 ==============
 
 @router.post("/datasets", response_model=KnowledgeBaseResponse)
@@ -181,7 +270,10 @@ async def upload_document(
         knowledge_base_id=kb_id,
         name=file.filename,
         content=text,
-        metadata={"size": len(content), "type": file.content_type, "status": "indexing"}
+        metadata={"size": len(content), "type": file.content_type},
+        status="indexing",
+        word_count=len(text),
+        segment_count=0
     )
     
     # 提交异步任务
@@ -197,6 +289,10 @@ async def upload_document(
         embedding_provider=kb.embedding_provider,
         embedding_model=kb.embedding_model
     )
+    
+    # 更新任务 ID
+    doc.indexing_task_id = task.id
+    await doc.save()
     
     return {
         "document_id": doc.id,
@@ -320,3 +416,313 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
         results=final_results,
         total=len(final_results)
     )
+
+
+# ============== 知识库更新 API ==============
+
+@router.put("/datasets/{kb_id}", response_model=KnowledgeBaseDetailResponse)
+async def update_knowledge_base(kb_id: int, payload: UpdateKnowledgeBaseRequest):
+    """更新知识库设置"""
+    kb = await KnowledgeBase.get_or_none(id=kb_id)
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+    
+    # 更新字段
+    if payload.name is not None:
+        kb.name = payload.name
+    if payload.description is not None:
+        kb.description = payload.description
+    if payload.embedding_provider is not None:
+        kb.embedding_provider = payload.embedding_provider
+    if payload.embedding_model is not None:
+        kb.embedding_model = payload.embedding_model
+    if payload.retrieval_mode is not None:
+        kb.retrieval_mode = payload.retrieval_mode
+    
+    await kb.save()
+    
+    # 统计
+    doc_count = await Document.filter(knowledge_base_id=kb.id).count()
+    docs = await Document.filter(knowledge_base_id=kb.id).all()
+    total_words = sum(doc.word_count for doc in docs)
+    
+    return KnowledgeBaseDetailResponse(
+        id=kb.id,
+        name=kb.name,
+        description=kb.description,
+        embedding_provider=kb.embedding_provider,
+        embedding_model=kb.embedding_model,
+        retrieval_mode=kb.retrieval_mode,
+        document_count=doc_count,
+        word_count=total_words,
+        created_at=kb.created_at,
+        updated_at=kb.updated_at
+    )
+
+
+@router.get("/datasets/{kb_id}/detail", response_model=KnowledgeBaseDetailResponse)
+async def get_knowledge_base_detail(kb_id: int):
+    """获取知识库详细信息"""
+    kb = await KnowledgeBase.get_or_none(id=kb_id)
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+    
+    doc_count = await Document.filter(knowledge_base_id=kb.id).count()
+    docs = await Document.filter(knowledge_base_id=kb.id).all()
+    total_words = sum(doc.word_count for doc in docs)
+    
+    return KnowledgeBaseDetailResponse(
+        id=kb.id,
+        name=kb.name,
+        description=kb.description,
+        embedding_provider=kb.embedding_provider,
+        embedding_model=kb.embedding_model,
+        retrieval_mode=kb.retrieval_mode,
+        document_count=doc_count,
+        word_count=total_words,
+        created_at=kb.created_at,
+        updated_at=kb.updated_at
+    )
+
+
+# ============== 文档管理 API ==============
+
+@router.get("/datasets/{kb_id}/documents", response_model=DocumentListResponse)
+async def list_documents(
+    kb_id: int,
+    page: int = 1,
+    page_size: int = 20,
+    status: Optional[str] = None,
+    keyword: Optional[str] = None
+):
+    """获取文档列表"""
+    kb = await KnowledgeBase.get_or_none(id=kb_id)
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+    
+    # 构建查询
+    query = Document.filter(knowledge_base_id=kb_id)
+    
+    if status:
+        query = query.filter(status=status)
+    if keyword:
+        query = query.filter(name__icontains=keyword)
+    
+    # 统计总数
+    total = await query.count()
+    
+    # 分页
+    offset = (page - 1) * page_size
+    docs = await query.order_by("-created_at").offset(offset).limit(page_size)
+    
+    return DocumentListResponse(
+        documents=[
+            DocumentResponse(
+                id=doc.id,
+                name=doc.name,
+                status=doc.status,
+                word_count=doc.word_count,
+                segment_count=doc.segment_count,
+                error_message=doc.error_message,
+                indexing_task_id=doc.indexing_task_id,
+                created_at=doc.created_at,
+                updated_at=doc.updated_at
+            )
+            for doc in docs
+        ],
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+
+@router.get("/datasets/{kb_id}/documents/{doc_id}", response_model=DocumentResponse)
+async def get_document(kb_id: int, doc_id: int):
+    """获取文档详情"""
+    doc = await Document.get_or_none(id=doc_id, knowledge_base_id=kb_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    return DocumentResponse(
+        id=doc.id,
+        name=doc.name,
+        status=doc.status,
+        word_count=doc.word_count,
+        segment_count=doc.segment_count,
+        error_message=doc.error_message,
+        indexing_task_id=doc.indexing_task_id,
+        created_at=doc.created_at,
+        updated_at=doc.updated_at
+    )
+
+
+@router.delete("/datasets/{kb_id}/documents/{doc_id}")
+async def delete_document(kb_id: int, doc_id: int):
+    """删除文档"""
+    doc = await Document.get_or_none(id=doc_id, knowledge_base_id=kb_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # 从 Weaviate 删除相关向量
+    weaviate = WeaviateClient()
+    collection_name = f"kb_{kb_id}"
+    
+    try:
+        await weaviate.delete_by_filter(
+            collection_name=collection_name,
+            filters={"doc_id": str(doc_id)}
+        )
+    except Exception as e:
+        # 如果向量删除失败，记录日志但继续删除数据库记录
+        print(f"Failed to delete vectors for doc {doc_id}: {e}")
+    finally:
+        weaviate.close()
+    
+    # 删除分段
+    await DocumentSegment.filter(document_id=doc_id).delete()
+    # 删除文档
+    await doc.delete()
+    
+    return {"deleted": True, "document_id": doc_id}
+
+
+# ============== 分段管理 API ==============
+
+@router.get("/datasets/{kb_id}/documents/{doc_id}/segments", response_model=SegmentListResponse)
+async def list_segments(
+    kb_id: int,
+    doc_id: int,
+    page: int = 1,
+    page_size: int = 20,
+    keyword: Optional[str] = None
+):
+    """获取文档分段列表"""
+    doc = await Document.get_or_none(id=doc_id, knowledge_base_id=kb_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    query = DocumentSegment.filter(document_id=doc_id)
+    
+    if keyword:
+        query = query.filter(content__icontains=keyword)
+    
+    total = await query.count()
+    offset = (page - 1) * page_size
+    segments = await query.order_by("position").offset(offset).limit(page_size)
+    
+    return SegmentListResponse(
+        segments=[
+            SegmentResponse(
+                id=seg.id,
+                content=seg.content,
+                position=seg.position,
+                tokens=seg.tokens,
+                created_at=seg.created_at
+            )
+            for seg in segments
+        ],
+        total=total,
+        page=page,
+        page_size=page_size
+    )
+
+
+@router.get("/datasets/{kb_id}/documents/{doc_id}/segments/{seg_id}", response_model=SegmentResponse)
+async def get_segment(kb_id: int, doc_id: int, seg_id: int):
+    """获取单个分段详情"""
+    seg = await DocumentSegment.get_or_none(id=seg_id, document_id=doc_id)
+    if not seg:
+        raise HTTPException(status_code=404, detail="Segment not found")
+    
+    return SegmentResponse(
+        id=seg.id,
+        content=seg.content,
+        position=seg.position,
+        tokens=seg.tokens,
+        created_at=seg.created_at
+    )
+
+
+# ============== 召回测试 API ==============
+
+@router.post("/datasets/{kb_id}/hit-testing", response_model=HitTestingResponse)
+async def hit_testing(kb_id: int, payload: HitTestingRequest):
+    """召回测试"""
+    kb = await KnowledgeBase.get_or_none(id=kb_id)
+    if not kb:
+        raise HTTPException(status_code=404, detail="Knowledge base not found")
+    
+    # 初始化服务
+    weaviate = WeaviateClient()
+    embedding = EmbeddingService(
+        provider=kb.embedding_provider,
+        model=kb.embedding_model
+    )
+    retriever = HybridRetriever(weaviate, embedding)
+    
+    mode_str = payload.retrieval_mode or kb.retrieval_mode
+    mode = RetrievalMode(mode_str)
+    
+    config = RetrievalConfig(
+        mode=mode,
+        top_k=payload.top_k,
+        score_threshold=payload.score_threshold
+    )
+    
+    collection_name = f"kb_{kb_id}"
+    
+    try:
+        results = await retriever.retrieve(
+            query=payload.query,
+            collection_name=collection_name,
+            config=config
+        )
+        
+        # Rerank
+        if payload.rerank and results:
+            reranker = BGEReranker()
+            docs_for_rerank = [
+                {"content": r.content, "metadata": r.metadata}
+                for r in results
+            ]
+            
+            rerank_results = await reranker.rerank(
+                query=payload.query,
+                documents=docs_for_rerank,
+                top_k=payload.rerank_top_k
+            )
+            
+            final_results = []
+            for r in rerank_results:
+                doc_id = int(r.metadata.get("doc_id", 0))
+                final_results.append(HitTestingResult(
+                    content=r.content,
+                    score=r.score,
+                    document_id=doc_id,
+                    document_name=r.metadata.get("doc_name", ""),
+                    segment_id=r.metadata.get("segment_id", 0),
+                    position=r.metadata.get("chunk_index", 0),
+                    word_count=len(r.content)
+                ))
+        else:
+            final_results = []
+            for r in results:
+                doc_id = int(r.metadata.get("doc_id", 0))
+                final_results.append(HitTestingResult(
+                    content=r.content,
+                    score=r.score,
+                    document_id=doc_id,
+                    document_name=r.metadata.get("doc_name", ""),
+                    segment_id=r.metadata.get("segment_id", 0),
+                    position=r.metadata.get("chunk_index", 0),
+                    word_count=len(r.content)
+                ))
+    finally:
+        weaviate.close()
+    
+    return HitTestingResponse(
+        query=payload.query,
+        results=final_results,
+        total=len(final_results)
+    )
+
