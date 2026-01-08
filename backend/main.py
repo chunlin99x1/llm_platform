@@ -11,13 +11,15 @@ from api.routers.workflow_nodes import router as workflow_nodes_router
 from api.routers.workflow_stream import router as workflow_stream_router
 from api.routers.workflow_publish import router as workflow_publish_router
 from api.routers.knowledge import router as knowledge_router
-from database.db import close_db, init_db
+from database.db import close_db, init_db,generate_schema
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
-    await init_db(app)
+    await init_db()
+    await generate_schema()
+    app.state.db_ready = True
     yield
     # Shutdown
     await close_db()

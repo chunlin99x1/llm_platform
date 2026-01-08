@@ -112,16 +112,10 @@ def index_document_task(
             "stage": "保存片段到数据库..."
         })
         
-        # 4. 保存片段到数据库
+        # 4. 保存片段到数据库（数据库连接已在 worker 启动时初始化）
         from database.models import DocumentSegment
-        from tortoise import Tortoise
         
         async def save_segments():
-            # 初始化数据库连接
-            from configs import get_settings
-            cfg = get_settings()
-            await Tortoise.init(db_url=cfg.db_url, modules={"models": ["app.db.models"]})
-            
             for seg in segments:
                 await DocumentSegment.create(
                     document_id=document_id,
@@ -129,8 +123,6 @@ def index_document_task(
                     position=seg.position,
                     tokens=seg.tokens
                 )
-            
-            await Tortoise.close_connections()
         
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)

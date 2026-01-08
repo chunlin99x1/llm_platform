@@ -1,23 +1,24 @@
-"""
-数据库连接管理
-"""
-
-from fastapi import FastAPI
 from tortoise import Tortoise
-
 from configs import get_settings
 
+settings = get_settings()
 
-async def init_db(app: FastAPI):
-    """初始化数据库连接"""
-    cfg = get_settings()
+async def init_db():
+    """初始化数据库连接（FastAPI & Celery 通用）"""
     await Tortoise.init(
-        db_url=cfg.db_url,
-        modules={"models": ["database.models"]}
+        db_url=settings.db_url,
+        modules={"models": [
+            "database.models.agent",
+            "database.models.app",
+            "database.models.workflow",
+            "database.models.chat",
+            "database.models.knowledge",
+        ]}
     )
-    await Tortoise.generate_schemas(safe=True)
-    app.state.db_ready = True
 
+async def generate_schema():
+    """仅 FastAPI 需要（Celery 不需要建表）"""
+    await Tortoise.generate_schemas(safe=True)
 
 async def close_db():
     """关闭数据库连接"""

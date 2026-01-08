@@ -15,7 +15,14 @@ TORTOISE_ORM = {
     },
     "apps": {
         "models": {
-            "models": ["database.models", "aerich.models"],
+            "models": [
+                "database.models.agent",
+                "database.models.app",
+                "database.models.workflow",
+                "database.models.chat",
+                "database.models.knowledge",
+                "aerich.models",
+            ],
             "default_connection": "default",
         },
     },
