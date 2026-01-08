@@ -15,6 +15,7 @@ class ModelProvider(Model):
     
     id = fields.IntField(pk=True)
     name = fields.CharField(max_length=50, unique=True)  # e.g. openai, dashscope
+    description = fields.CharField(max_length=255, null=True)
     # provider_type 移除，改为由关联的 ProviderModel 定义
     api_key = fields.CharField(max_length=256)  # 加密存储
     api_base = fields.CharField(max_length=256, null=True)  # 自定义 API 地址
@@ -35,6 +36,7 @@ class ProviderModel(Model):
     id = fields.IntField(pk=True)
     provider = fields.ForeignKeyField("models.ModelProvider", related_name="models", on_delete=fields.CASCADE)
     name = fields.CharField(max_length=100)  # e.g. gpt-4, text-embedding-ada-002
+    description = fields.CharField(max_length=255, null=True)
     model_type = fields.CharField(max_length=20)  # llm, embedding, rerank, tts
     enabled = fields.BooleanField(default=True)
     config = fields.JSONField(default=dict)

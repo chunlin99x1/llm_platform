@@ -24,12 +24,14 @@ router = APIRouter(prefix="/settings", tags=["settings"])
 # --- Provider ---
 class ModelProviderCreate(BaseModel):
     name: str
+    description: Optional[str] = None
     api_key: str
     api_base: Optional[str] = None
     config: dict = {}
 
 
 class ModelProviderUpdate(BaseModel):
+    description: Optional[str] = None
     api_key: Optional[str] = None
     api_base: Optional[str] = None
     enabled: Optional[bool] = None
@@ -39,6 +41,7 @@ class ModelProviderUpdate(BaseModel):
 class ProviderModelResponse(BaseModel):
     id: int
     name: str
+    description: Optional[str]
     model_type: str
     enabled: bool
     config: dict
@@ -48,6 +51,7 @@ class ProviderModelResponse(BaseModel):
 class ModelProviderResponse(BaseModel):
     id: int
     name: str
+    description: Optional[str]
     api_base: Optional[str]
     enabled: bool
     config: dict
@@ -59,11 +63,13 @@ class ModelProviderResponse(BaseModel):
 # --- Model ---
 class ProviderModelCreate(BaseModel):
     name: str
+    description: Optional[str] = None
     model_type: str  # llm, embedding, rerank, tts
     config: dict = {}
 
 
 class ProviderModelUpdate(BaseModel):
+    description: Optional[str] = None
     enabled: Optional[bool] = None
     config: Optional[dict] = None
 
@@ -120,6 +126,7 @@ async def list_model_providers():
             ProviderModelResponse(
                 id=m.id,
                 name=m.name,
+                description=m.description,
                 model_type=m.model_type,
                 enabled=m.enabled,
                 config=m.config,
@@ -129,6 +136,7 @@ async def list_model_providers():
         results.append(ModelProviderResponse(
             id=p.id,
             name=p.name,
+            description=p.description,
             api_base=p.api_base,
             enabled=p.enabled,
             config=p.config,
@@ -147,11 +155,14 @@ async def create_model_provider(payload: ModelProviderCreate):
         existing.api_key = payload.api_key
         existing.api_base = payload.api_base
         existing.config = payload.config
+        if payload.description is not None:
+             existing.description = payload.description
         await existing.save()
         provider = existing
     else:
         provider = await ModelProvider.create(
             name=payload.name,
+            description=payload.description,
             api_key=payload.api_key,
             api_base=payload.api_base,
             config=payload.config
@@ -163,6 +174,7 @@ async def create_model_provider(payload: ModelProviderCreate):
     return ModelProviderResponse(
         id=provider.id,
         name=provider.name,
+        description=provider.description,
         api_base=provider.api_base,
         enabled=provider.enabled,
         config=provider.config,
@@ -187,6 +199,8 @@ async def update_model_provider(provider_id: int, payload: ModelProviderUpdate):
         provider.enabled = payload.enabled
     if payload.config is not None:
         provider.config = payload.config
+    if payload.description is not None:
+        provider.description = payload.description
     
     await provider.save()
     
@@ -195,6 +209,7 @@ async def update_model_provider(provider_id: int, payload: ModelProviderUpdate):
         ProviderModelResponse(
             id=m.id,
             name=m.name,
+            description=m.description,
             model_type=m.model_type,
             enabled=m.enabled,
             config=m.config,
@@ -205,6 +220,7 @@ async def update_model_provider(provider_id: int, payload: ModelProviderUpdate):
     return ModelProviderResponse(
         id=provider.id,
         name=provider.name,
+        description=provider.description,
         api_base=provider.api_base,
         enabled=provider.enabled,
         config=provider.config,
@@ -244,6 +260,7 @@ async def create_provider_model(provider_id: int, payload: ProviderModelCreate):
     model = await ProviderModel.create(
         provider=provider,
         name=payload.name,
+        description=payload.description,
         model_type=payload.model_type,
         config=payload.config
     )
@@ -251,6 +268,7 @@ async def create_provider_model(provider_id: int, payload: ProviderModelCreate):
     return ProviderModelResponse(
         id=model.id,
         name=model.name,
+        description=model.description,
         model_type=model.model_type,
         enabled=model.enabled,
         config=model.config,
