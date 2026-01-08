@@ -67,8 +67,10 @@ export function ConfirmProvider({ children }: { children: ReactNode }) {
     const handleOpenChange = (open: boolean) => {
         if (!open) {
             resolveRef.current(false);
+            onClose();
+        } else {
+            onOpen();
         }
-        onOpenChange(open);
     };
 
     // Color mapping

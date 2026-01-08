@@ -682,17 +682,23 @@ async def batch_operate_documents(kb_id: int, payload: BatchDocumentRequest):
         # 需要清理 Weaviate 向量
         weaviate = get_weaviate_client()
         collection_name = f"kb_{kb_id}"
-        try:
-            for doc in docs:
-                # 删除片段
+        
+        for doc in docs:
+            try:
+                # 1. 删除 Weaviate 向量 (Best Effort)
+                try:
+                    await weaviate.delete_by_filter(collection_name, {"doc_id": str(doc.id)})
+                except Exception as e:
+                    logger.warning(f"Failed to delete vector for doc {doc.id}: {e}")
+
+                # 2. 删除分段
                 await DocumentSegment.filter(document_id=doc.id).delete()
-                # 删除向量
-                await weaviate.delete_by_filter(collection_name, {"doc_id": str(doc.id)})
-                # 删除文档
+                
+                # 3. 删除文档
                 await doc.delete()
                 count += 1
-        except Exception as e:
-            logger.error(f"Failed to delete document from Weaviate: {e}")
+            except Exception as e:
+                logger.error(f"Failed to delete document {doc.id}: {e}")
 
     elif payload.action == "archive":
         for doc in docs:

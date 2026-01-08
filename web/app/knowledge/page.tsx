@@ -233,7 +233,10 @@ export default function KnowledgePage() {
                                         <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                                             <Dropdown>
                                                 <DropdownTrigger>
-                                                    <div className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer" onClick={(e) => e.preventDefault()}>
+                                                    <div className="w-6 h-6 flex items-center justify-center rounded-md hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors cursor-pointer" onClick={(e) => {
+                                                        e.preventDefault();
+                                                        e.stopPropagation();
+                                                    }}>
                                                         <MoreHorizontal size={16} />
                                                     </div>
                                                 </DropdownTrigger>
@@ -243,11 +246,7 @@ export default function KnowledgePage() {
                                                         className="text-danger"
                                                         color="danger"
                                                         startContent={<Trash2 size={14} />}
-                                                        onClick={(e) => {
-                                                            e.preventDefault();
-                                                            e.stopPropagation();
-                                                            deleteKnowledgeBase(kb.id);
-                                                        }}
+                                                        onPress={() => deleteKnowledgeBase(kb.id)}
                                                     >
                                                         删除
                                                     </DropdownItem>
