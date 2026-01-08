@@ -9,7 +9,7 @@ import {
     Box,
     MessageSquare,
     Terminal,
-    MoreVertical,
+    MoreHorizontal,
     GitBranch,
     Code,
     Globe,
@@ -18,7 +18,9 @@ import {
     FileCode,
     Database,
     HelpCircle,
+    Search
 } from "lucide-react";
+import { cn } from "@heroui/react";
 
 // --- Node Components ---
 
@@ -28,38 +30,40 @@ interface BaseNodeProps {
     title: string;
     icon: any;
     children: React.ReactNode;
-    colorClass: string; // TailWind class for text/bg color
-    iconBgClass?: string;
+    colorClass: string; // TailWind class for text color in icon
+    bgClass: string; // TailWind class for icon background
     selected?: boolean;
     status?: NodeStatus;
     executionTime?: number; // 毫秒
+    headerRight?: React.ReactNode;
+    onMenuClick?: (e: React.MouseEvent) => void;
 }
 
 function StatusIndicator({ status, executionTime }: { status: NodeStatus; executionTime?: number }) {
     switch (status) {
         case "pending":
             return (
-                <div className="flex items-center gap-1 text-foreground-400">
-                    <div className="w-1.5 h-1.5 rounded-full bg-foreground-300 animate-pulse" />
+                <div className="flex items-center justify-center w-5 h-5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-gray-300 animate-pulse" />
                 </div>
             );
         case "running":
             return (
-                <div className="flex items-center gap-1 text-primary">
-                    <Loader2 size={12} className="animate-spin" />
+                <div className="flex items-center justify-center w-5 h-5 text-[#155EEF]">
+                    <Loader2 size={14} className="animate-spin" />
                 </div>
             );
         case "success":
             return (
-                <div className="flex items-center gap-1 text-success">
-                    <CheckCircle2 size={13} strokeWidth={2.5} />
-                    {executionTime && <span className="text-[9px] font-medium">{`${(executionTime / 1000).toFixed(2)} s`}</span>}
+                <div className="flex items-center gap-1 text-green-600">
+                    <CheckCircle2 size={14} strokeWidth={2.5} />
+                    {executionTime && <span className="text-[9px] font-medium font-mono text-gray-400">{`${(executionTime / 1000).toFixed(2)}s`}</span>}
                 </div>
             );
         case "error":
             return (
-                <div className="flex items-center gap-1 text-danger">
-                    <XCircle size={13} strokeWidth={2.5} />
+                <div className="flex items-center justify-center w-5 h-5 text-red-600">
+                    <XCircle size={14} strokeWidth={2.5} />
                 </div>
             );
         default:
@@ -67,55 +71,65 @@ function StatusIndicator({ status, executionTime }: { status: NodeStatus; execut
     }
 }
 
-function BaseNode({ title, icon: Icon, children, colorClass, iconBgClass, selected, status = "idle", executionTime }: BaseNodeProps) {
-    const statusBorderClass = status === "running"
-        ? "ring-2 ring-primary ring-offset-1"
-        : status === "success"
-            ? "ring-1 ring-success"
-            : status === "error"
-                ? "ring-1 ring-danger"
-                : "";
-
-    const selectedClass = selected ? "ring-2 ring-primary border-primary shadow-lg shadow-primary/10" : "border-divider/60 hover:border-primary/40 hover:shadow-md";
+function BaseNode({ title, icon: Icon, children, colorClass, bgClass, selected, status = "idle", executionTime, headerRight, onMenuClick }: BaseNodeProps) {
+    const isRunning = status === "running";
+    const isError = status === "error";
 
     return (
-        <div className={`group relative min - w - [200px] max - w - [200px] cursor - pointer rounded - xl border bg - white shadow - sm transition - all duration - 200 ${selectedClass} ${statusBorderClass} `}>
-
+        <div
+            className={cn(
+                "group relative w-[240px] rounded-2xl border bg-white transition-all duration-200",
+                selected
+                    ? "border-[#155EEF] ring-1 ring-[#155EEF] shadow-lg shadow-[#155EEF]/10 z-10"
+                    : "border-gray-200 hover:border-gray-300 hover:shadow-md",
+                isRunning && "ring-2 ring-[#155EEF]/30 border-[#155EEF]",
+                isError && "border-red-300 ring-2 ring-red-100"
+            )}
+        >
             {/* Header */}
-            <div className="flex items-center justify-between px-2.5 py-2">
-                <div className="flex items-center gap-1.5">
-                    <div className={`flex items - center justify - center w - 5 h - 5 rounded - md shadow - sm ${iconBgClass || colorClass} `}>
-                        <Icon size={12} className="text-white" />
+            <div className="flex items-center justify-between px-3 py-3">
+                <div className="flex items-center gap-2 overflow-hidden">
+                    <div className={cn("flex items-center justify-center w-8 h-8 rounded-[10px] shadow-sm shrink-0", bgClass)}>
+                        <Icon size={16} className={cn("text-white")} />
                     </div>
-                    <span className="text-[11px] font-semibold text-foreground-900 leading-none truncate max-w-[120px]">{title}</span>
+                    <span className="text-[13px] font-bold text-gray-900 truncate flex-1 leading-tight">
+                        {title}
+                    </span>
                 </div>
 
-                <div className="flex items-center gap-1">
+                <div className="flex items-center gap-1 shrink-0 ml-2">
                     {status !== "idle" ? (
                         <StatusIndicator status={status} executionTime={executionTime} />
                     ) : (
-                        <button className="text-foreground-300 hover:text-foreground-500 transition-colors">
-                            <MoreVertical size={12} />
-                        </button>
+                        headerRight || (
+                            <button
+                                className="text-gray-400 hover:text-gray-600 p-1 rounded-md hover:bg-gray-100 transition-colors opacity-0 group-hover:opacity-100"
+                                onClick={onMenuClick}
+                            >
+                                <MoreHorizontal size={16} />
+                            </button>
+                        )
                     )}
                 </div>
             </div>
 
             {/* Content Body */}
-            <div className="px-2.5 pb-3 space-y-1.5">
-                {children}
+            <div className="px-3 pb-3 space-y-2">
+                <div className="bg-gray-50/80 rounded-xl p-2.5 border border-gray-100/50">
+                    {children}
+                </div>
             </div>
 
             {/* Handles */}
             <Handle
                 type="target"
                 position={Position.Left}
-                className="!h-2.5 !w-2.5 !border-2 !border-white !bg-primary -ml-[5px]"
+                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -ml-[6px] transition-transform hover:scale-125"
             />
             <Handle
                 type="source"
                 position={Position.Right}
-                className="!h-2.5 !w-2.5 !border-2 !border-white !bg-primary -mr-[5px]"
+                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -mr-[6px] transition-transform hover:scale-125"
             />
         </div>
     );
@@ -127,17 +141,18 @@ export function StartNode({ data, selected }: { data: any, selected: boolean }) 
         <BaseNode
             title="开始"
             icon={Play}
-            colorClass="bg-blue-500"
-            iconBgClass="bg-blue-500"
+            colorClass="text-white"
+            bgClass="bg-[#155EEF]" // Blue-600
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="text-[11px] text-foreground-500 bg-foreground-50 p-2 rounded-lg">
-                <span className="font-medium text-foreground-700">系统输入</span>
-                <div className="mt-1 flex flex-wrap gap-1">
-                    <span className="bg-white border border-divider px-1.5 py-0.5 rounded text-[10px]">sys.query</span>
-                    <span className="bg-white border border-divider px-1.5 py-0.5 rounded text-[10px]">sys.files</span>
+            <div className="text-[11px] text-gray-500">
+                <span className="text-gray-400 block mb-1.5 text-[10px] font-medium uppercase tracking-wider">系统变量</span>
+                <div className="flex flex-wrap gap-1.5">
+                    <span className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white border border-gray-200 text-gray-600">sys.query</span>
+                    <span className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white border border-gray-200 text-gray-600">sys.files</span>
                 </div>
             </div>
         </BaseNode>
@@ -149,18 +164,24 @@ export function LLMNode({ data, selected }: { data: any, selected: boolean }) {
         <BaseNode
             title={data.label || "LLM"}
             icon={Box}
-            colorClass="bg-indigo-500"
-            iconBgClass="bg-indigo-500"
+            colorClass="text-white"
+            bgClass="bg-[#6172F3]" // Indigo
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
             <div className="space-y-2">
-                <div className="text-[11px] font-medium text-foreground-600 bg-foreground-50 px-2 py-1 rounded">
-                    MODEL: <span className="font-bold text-foreground-800">GPT-4o</span>
+                <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Model</span>
+                    <span className="text-[11px] font-semibold text-gray-700">GPT-4o</span>
                 </div>
-                <div className="text-[11px] text-foreground-500 line-clamp-2 leading-relaxed px-1">
-                    {data.prompt || "输入提示词..."}
+                <div className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">
+                    {data.prompt ? (
+                        <span className="text-gray-600">{data.prompt}</span>
+                    ) : (
+                        <span className="italic text-gray-400">输入提示词...</span>
+                    )}
                 </div>
             </div>
         </BaseNode>
@@ -172,13 +193,14 @@ export function AnswerNode({ data, selected }: { data: any, selected: boolean })
         <BaseNode
             title={data.label || "直接回复"}
             icon={MessageSquare}
-            colorClass="bg-orange-500"
-            iconBgClass="bg-orange-500"
+            colorClass="text-white"
+            bgClass="bg-[#F79009]" // Orange
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="text-[11px] text-foreground-500 bg-foreground-50 p-2 rounded-lg">
+            <div className="text-[11px] text-gray-500 leading-relaxed">
                 回复内容将直接发送给用户
             </div>
         </BaseNode>
@@ -190,15 +212,16 @@ export function ConditionNode({ data, selected }: { data: any, selected: boolean
         <BaseNode
             title={data.label || "条件分支"}
             icon={GitBranch}
-            colorClass="bg-cyan-500"
-            iconBgClass="bg-cyan-500"
+            colorClass="text-white"
+            bgClass="bg-gray-600"
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="group/code bg-foreground-50 rounded-lg p-2 border border-transparent hover:border-divider transition-colors">
-                <div className="text-[10px] font-bold text-foreground-400 mb-1 uppercase tracking-wider">IF</div>
-                <div className="text-[11px] font-mono text-foreground-700 truncate">
+            <div className="space-y-1">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">IF</div>
+                <div className="font-mono text-[11px] text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-1 truncate">
                     {data.condition || "condition..."}
                 </div>
             </div>
@@ -211,20 +234,24 @@ export function CodeNode({ data, selected }: { data: any, selected: boolean }) {
         <BaseNode
             title={data.label || "代码执行"}
             icon={Code}
-            colorClass="bg-blue-600"
-            iconBgClass="bg-blue-600"
+            colorClass="text-white"
+            bgClass="bg-[#E44D6C]" // Rose/Pink
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="flex items-center gap-2 mb-2">
-                <div className="text-[9px] font-bold bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded border border-blue-100 uppercase">
-                    {data.language || "Python"}
+            <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-gray-400 uppercase">Language</span>
+                    <span className="text-[10px] font-bold text-[#E44D6C] bg-red-50 px-1.5 py-0.5 rounded border border-red-100">
+                        {data.language || "Python"}
+                    </span>
                 </div>
-            </div>
-            <div className="bg-foreground-900 rounded-lg p-2 overflow-hidden relative">
-                <div className="text-[10px] font-mono text-zinc-400 leading-tight line-clamp-3 opacity-80">
-                    {data.code || "# code here..."}
+                <div className="bg-[#1e1e1e] rounded-lg p-2 overflow-hidden border border-gray-800">
+                    <div className="text-[10px] font-mono text-gray-400 leading-tight line-clamp-3 opacity-90">
+                        {data.code || "# Write your code here"}
+                    </div>
                 </div>
             </div>
         </BaseNode>
@@ -233,10 +260,10 @@ export function CodeNode({ data, selected }: { data: any, selected: boolean }) {
 
 export function HttpNode({ data, selected }: { data: any, selected: boolean }) {
     const methodColors: Record<string, string> = {
-        GET: "bg-blue-100 text-blue-700 border-blue-200",
-        POST: "bg-green-100 text-green-700 border-green-200",
-        PUT: "bg-orange-100 text-orange-700 border-orange-200",
-        DELETE: "bg-red-100 text-red-700 border-red-200",
+        GET: "bg-blue-50 text-blue-700 border-blue-200",
+        POST: "bg-green-50 text-green-700 border-green-200",
+        PUT: "bg-orange-50 text-orange-700 border-orange-200",
+        DELETE: "bg-red-50 text-red-700 border-red-200",
     };
     const method = data.method || "GET";
 
@@ -244,17 +271,18 @@ export function HttpNode({ data, selected }: { data: any, selected: boolean }) {
         <BaseNode
             title={data.label || "HTTP 请求"}
             icon={Globe}
-            colorClass="bg-violet-500"
-            iconBgClass="bg-violet-500"
+            colorClass="text-white"
+            bgClass="bg-[#875BF7]" // Violet
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="flex items-center gap-2 bg-foreground-50 p-2 rounded-lg border border-transparent hover:border-divider transition-colors">
-                <span className={`text - [9px] font - bold px - 1.5 py - 0.5 rounded border ${methodColors[method] || methodColors.GET} `}>
+            <div className="flex items-center gap-2 bg-white p-1.5 rounded-lg border border-gray-200">
+                <span className={cn("text-[9px] font-bold px-1.5 py-0.5 rounded border shrink-0", methodColors[method] || methodColors.GET)}>
                     {method}
                 </span>
-                <span className="text-[11px] text-foreground-600 truncate font-mono">
+                <span className="text-[11px] text-gray-600 truncate font-mono flex-1">
                     {data.url ? new URL(data.url).pathname : "/..."}
                 </span>
             </div>
@@ -267,23 +295,24 @@ export function VariableNode({ data, selected }: { data: any, selected: boolean 
         <BaseNode
             title={data.label || "变量赋值"}
             icon={Variable}
-            colorClass="bg-blue-500"
-            iconBgClass="bg-blue-500"
+            colorClass="text-white"
+            bgClass="bg-[#155EEF]"
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="flex flex-col gap-1.5 bg-foreground-50 p-2 rounded-lg">
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-foreground-400 font-medium">SET</span>
-                    <span className="text-[11px] font-mono text-primary font-medium bg-primary/5 px-1 rounded">
-                        {data.variableName || "variable"}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-gray-400">SET</span>
+                    <span className="text-[11px] font-mono text-[#155EEF] font-bold bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 max-w-[140px] truncate">
+                        {data.variableName || "var_name"}
                     </span>
                 </div>
-                <div className="h-px bg-divider/50 w-full" />
-                <div className="flex items-center gap-2">
-                    <span className="text-[10px] text-foreground-400 font-medium">TO</span>
-                    <span className="text-[11px] text-foreground-600 truncate max-w-[140px]">
+                <div className="h-px bg-gray-100" />
+                <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-medium text-gray-400">TO</span>
+                    <span className="text-[11px] text-gray-600 truncate max-w-[140px] font-mono bg-white px-1 rounded border border-gray-100">
                         {data.value || "..."}
                     </span>
                 </div>
@@ -297,15 +326,16 @@ export function IterationNode({ data, selected }: { data: any, selected: boolean
         <BaseNode
             title={data.label || "迭代"}
             icon={Repeat}
-            colorClass="bg-cyan-500"
-            iconBgClass="bg-cyan-500"
+            colorClass="text-white"
+            bgClass="bg-[#06AED4]" // Cyan
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="bg-foreground-50 p-2 rounded-lg">
-                <div className="text-[10px] text-foreground-500 mb-1">输入列表</div>
-                <div className="text-[11px] font-mono text-foreground-700 truncate">
+            <div className="space-y-1">
+                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Input</div>
+                <div className="font-mono text-[11px] text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-1 truncate">
                     {data.inputList || "{{items}}"}
                 </div>
             </div>
@@ -318,14 +348,15 @@ export function TemplateNode({ data, selected }: { data: any, selected: boolean 
         <BaseNode
             title={data.label || "模板转换"}
             icon={FileCode}
-            colorClass="bg-blue-500"
-            iconBgClass="bg-blue-500"
+            colorClass="text-white"
+            bgClass="bg-[#155EEF]"
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="bg-foreground-900 rounded-lg p-2 overflow-hidden">
-                <div className="text-[10px] font-mono text-zinc-400 leading-tight line-clamp-2">
+            <div className="bg-gray-50 rounded-lg p-2 border border-gray-200">
+                <div className="text-[10px] font-mono text-gray-500 leading-tight line-clamp-2">
                     {data.template || "{{ input }}"}
                 </div>
             </div>
@@ -338,16 +369,20 @@ export function KnowledgeNode({ data, selected }: { data: any, selected: boolean
         <BaseNode
             title={data.label || "知识检索"}
             icon={Database}
-            colorClass="bg-green-500"
-            iconBgClass="bg-green-500"
+            colorClass="text-white"
+            bgClass="bg-[#00A9A6]" // Teal (Dify style)
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="bg-foreground-50 p-2 rounded-lg">
-                <div className="text-[10px] text-foreground-500 mb-1">知识库</div>
-                <div className="text-[11px] font-medium text-foreground-700 truncate">
-                    {data.knowledgeBase || "选择知识库..."}
+            <div className="space-y-1">
+                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Dataset</div>
+                <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded p-1.5">
+                    <div className="w-4 h-4 rounded bg-[#FFF2F2] flex items-center justify-center text-[10px]">📙</div>
+                    <div className="text-[11px] font-medium text-gray-700 truncate">
+                        {data.knowledgeBase || "选择知识库..."}
+                    </div>
                 </div>
             </div>
         </BaseNode>
@@ -359,24 +394,21 @@ export function ClassifierNode({ data, selected }: { data: any, selected: boolea
         <BaseNode
             title={data.label || "问题分类"}
             icon={HelpCircle}
-            colorClass="bg-green-500"
-            iconBgClass="bg-green-500"
+            colorClass="text-white"
+            bgClass="bg-[#00A9A6]" // Same as Knowledge
             selected={selected}
             status={data.status}
             executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
         >
-            <div className="bg-foreground-50 p-2 rounded-lg space-y-1">
-                <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    <span className="text-[10px] text-foreground-600">类别 1</span>
+            <div className="space-y-1.5 mt-0.5">
+                <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500 shadow-sm" />
+                    <span className="text-[11px] text-gray-600 font-medium">Class 1</span>
                 </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
-                    <span className="text-[10px] text-foreground-600">类别 2</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                    <div className="w-1.5 h-1.5 rounded-full bg-gray-400" />
-                    <span className="text-[10px] text-foreground-400">更多...</span>
+                <div className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500 shadow-sm" />
+                    <span className="text-[11px] text-gray-600 font-medium">Class 2</span>
                 </div>
             </div>
         </BaseNode>

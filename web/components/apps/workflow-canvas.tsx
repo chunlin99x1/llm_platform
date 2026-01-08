@@ -103,6 +103,11 @@ export function WorkflowCanvas({
         data: {
             ...node.data,
             status: nodeRunStatus[node.id] || 'idle',
+            onShowMenu: (e: React.MouseEvent) => {
+                e.preventDefault();
+                e.stopPropagation();
+                openNodeMenu(node.id, node.type || '', e.clientX, e.clientY);
+            }
         },
     }));
 
