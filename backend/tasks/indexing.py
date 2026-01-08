@@ -62,6 +62,11 @@ def index_document_task(
 
     # 1. Main Async Logic Wrapper
     async def index_document_async():
+        from database.connection import init_db, close_db
+        
+        # 显式初始化数据库连接（绑定到当前 Event Loop）
+        await init_db()
+        
         try:
             # 1. 分块
             chunker = DocumentChunker(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
@@ -158,6 +163,9 @@ def index_document_task(
                 "exc_type": type(e).__name__, "exc_message": str(e)
             })
             raise e
+        finally:
+            # 必须关闭数据库连接，释放资源
+            await close_db()
 
     # Run the entire async logic in one loop
     return run_async(index_document_async())

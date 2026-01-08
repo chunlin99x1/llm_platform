@@ -10,7 +10,6 @@ from celery import Celery
 from celery.signals import worker_process_init, worker_process_shutdown
 import asyncio
 from configs import get_settings
-from database.connection import init_db, close_db
 from core.rag.db_conn import get_weaviate_client, close_weaviate_client
 
 # 获取配置
@@ -46,16 +45,7 @@ def init_worker_resources(**kwargs):
     """
     print(f"[Celery Worker] Initializing resources for PID: {kwargs.get('pid')}")
 
-    # 1. 初始化数据库 (异步)
-    # Celery 默认是同步的，Tortoise ORM 需要在 loop 中初始化
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        loop.run_until_complete(init_db())
-        print("[Celery Worker] Database initialized.")
-    except Exception as e:
-        print(f"[Celery Worker] Database init failed: {e}")
-
+    # Weaviate 是单例且跨 Loop 安全（通常），可以全局初始化
     try:
         get_weaviate_client()
         print("[Celery Worker] Weaviate connection initialized.")
@@ -70,21 +60,9 @@ def close_worker_resources(**kwargs):
     """
     print("[Celery Worker] Shutting down resources...")
 
-    # 1. 关闭 Weaviate
+    # 关闭 Weaviate
     try:
         close_weaviate_client()
         print("[Celery Worker] Weaviate connection closed.")
     except Exception as e:
         print(f"[Celery Worker] Weaviate close failed: {e}")
-
-    # 2. 关闭数据库 (异步)
-    try:
-        loop = asyncio.get_event_loop() # 尝试获取当前 loop
-        if loop.is_closed():
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-        loop.run_until_complete(close_db())
-        print("[Celery Worker] Database connection closed.")
-        loop.close()
-    except Exception as e:
-        print(f"[Celery Worker] Database close failed: {e}")
