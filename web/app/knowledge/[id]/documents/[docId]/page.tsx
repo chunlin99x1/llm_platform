@@ -13,6 +13,14 @@ import {
     Pagination,
     ScrollShadow,
     Input,
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    Textarea,
+    useDisclosure,
+    Switch,
 } from "@heroui/react";
 import {
     ArrowLeft,
@@ -22,6 +30,8 @@ import {
     AlertCircle,
     Clock,
     Loader2,
+    Pencil,
+    MoreHorizontal,
 } from "lucide-react";
 
 interface Document {
@@ -40,6 +50,9 @@ interface Segment {
     position: number;
     tokens: number;
     created_at: string;
+    keywords?: string[];
+    hit_count: number;
+    enabled: boolean;
 }
 
 interface SegmentListResponse {
@@ -68,6 +81,14 @@ export default function DocumentDetailPage() {
     const [pageSize] = useState(20);
     const [loading, setLoading] = useState(true);
     const [keyword, setKeyword] = useState("");
+
+    // Edit Modal State
+    const { isOpen, onOpen, onClose } = useDisclosure();
+    const [editingSegment, setEditingSegment] = useState<Segment | null>(null);
+    const [editContent, setEditContent] = useState("");
+    const [editKeywords, setEditKeywords] = useState("");
+    const [editEnabled, setEditEnabled] = useState(true);
+    const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         loadDocument();
@@ -115,6 +136,40 @@ export default function DocumentDetailPage() {
     function handleSearch() {
         setPage(1);
         loadSegments();
+    }
+
+    function openEditModal(seg: Segment) {
+        setEditingSegment(seg);
+        setEditContent(seg.content);
+        setEditKeywords(seg.keywords?.join(" ") || "");
+        setEditEnabled(seg.enabled);
+        onOpen();
+    }
+
+    async function handleSaveSegment() {
+        if (!editingSegment) return;
+        setSaving(true);
+
+        try {
+            const resp = await fetch(`/api/knowledge/datasets/${kbId}/documents/${docId}/segments/${editingSegment.id}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    content: editContent,
+                    keywords: editKeywords.split(" ").filter(k => k.trim()),
+                    enabled: editEnabled
+                })
+            });
+
+            if (resp.ok) {
+                onClose();
+                loadSegments();
+            }
+        } catch (e) {
+            console.error("Failed to save segment:", e);
+        } finally {
+            setSaving(false);
+        }
     }
 
     const totalPages = Math.ceil(total / pageSize);
@@ -208,10 +263,25 @@ export default function DocumentDetailPage() {
                                         <span className="text-xs text-foreground-500">
                                             {seg.tokens} tokens
                                         </span>
+                                        {!seg.enabled && (
+                                            <Chip size="sm" variant="flat" color="default" className="text-xs h-5">
+                                                已禁用
+                                            </Chip>
+                                        )}
+                                        {seg.keywords && seg.keywords.length > 0 && (
+                                            <div className="flex gap-1">
+                                                {seg.keywords.map((k, i) => (
+                                                    <span key={i} className="text-xs text-blue-600 bg-blue-50 px-1.5 rounded">{k}</span>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
+                                    <Button isIconOnly size="sm" variant="light" className="text-gray-400" onPress={() => openEditModal(seg)}>
+                                        <Pencil size={14} />
+                                    </Button>
                                 </div>
                             </CardHeader>
-                            <CardBody className="pt-0">
+                            <CardBody className={`pt-0 ${!seg.enabled ? "opacity-50" : ""}`}>
                                 <ScrollShadow className="max-h-40">
                                     <p className="text-sm leading-relaxed whitespace-pre-wrap">
                                         {seg.content}
@@ -233,6 +303,48 @@ export default function DocumentDetailPage() {
                     )}
                 </div>
             )}
+
+            {/* Edit Modal */}
+            <Modal isOpen={isOpen} onClose={onClose} size="2xl">
+                <ModalContent>
+                    <ModalHeader>编辑分段 #{editingSegment ? editingSegment.position + 1 : ""}</ModalHeader>
+                    <ModalBody>
+                        <div className="flex flex-col gap-4">
+                            <div>
+                                <label className="text-sm font-medium text-gray-700 mb-1 block">分段内容</label>
+                                <Textarea
+                                    minRows={6}
+                                    maxRows={15}
+                                    value={editContent}
+                                    onValueChange={setEditContent}
+                                    classNames={{ input: "text-base leading-relaxed" }}
+                                />
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-1">
+                                    <label className="text-sm font-medium text-gray-700 mb-1 block">关键词 (空格分隔)</label>
+                                    <Input
+                                        value={editKeywords}
+                                        onValueChange={setEditKeywords}
+                                        placeholder="keyword1 keyword2"
+                                    />
+                                </div>
+                                <div className="w-32">
+                                    <label className="text-sm font-medium text-gray-700 mb-1 block">状态</label>
+                                    <div className="flex items-center gap-2 h-10">
+                                        <Switch isSelected={editEnabled} onValueChange={setEditEnabled} size="sm" />
+                                        <span className="text-sm">{editEnabled ? "启用" : "禁用"}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </ModalBody>
+                    <ModalFooter>
+                        <Button variant="light" onPress={onClose}>取消</Button>
+                        <Button color="primary" onPress={handleSaveSegment} isLoading={saving}>保存</Button>
+                    </ModalFooter>
+                </ModalContent>
+            </Modal>
         </div>
     );
 }

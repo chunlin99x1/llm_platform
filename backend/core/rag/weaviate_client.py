@@ -379,6 +379,49 @@ class WeaviateClient:
     # 删除与统计
     # ============================
 
+    async def find_uuid(
+        self,
+        collection_name: str,
+        filters: Dict[str, Any]
+    ) -> Optional[str]:
+        """查找单个对象的 UUID"""
+        collection = self.client.collections.get(collection_name)
+        weaviate_filter = self._build_filter(filters)
+        
+        try:
+            # 只获取 UUID，不获取属性和向量
+            response = collection.query.fetch_objects(
+                filters=weaviate_filter,
+                limit=1,
+                include_vector=False
+            )
+            if response.objects:
+                return str(response.objects[0].uuid)
+            return None
+        except Exception as e:
+            logger.error(f"Find UUID failed: {e}")
+            return None
+
+    async def update_object(
+        self,
+        collection_name: str,
+        uuid: str,
+        properties: Optional[Dict[str, Any]] = None,
+        vector: Optional[List[float]] = None
+    ) -> bool:
+        """更新对象的属性和向量"""
+        collection = self.client.collections.get(collection_name)
+        try:
+            collection.data.update(
+                uuid=uuid,
+                properties=properties,
+                vector=vector
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Update object failed: {e}")
+            return False
+
     async def delete_documents(
         self,
         collection_name: str,

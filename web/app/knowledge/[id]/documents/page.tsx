@@ -10,6 +10,12 @@ import {
     Spinner,
     Progress,
     Pagination,
+    Switch,
+    Checkbox,
+    Dropdown,
+    DropdownTrigger,
+    DropdownMenu,
+    DropdownItem,
 } from "@heroui/react";
 import {
     Upload,
@@ -22,6 +28,9 @@ import {
     AlertCircle,
     Clock,
     Loader2,
+    Pencil,
+    MoreHorizontal,
+    Filter,
 } from "lucide-react";
 
 interface Document {
@@ -34,6 +43,8 @@ interface Document {
     indexing_task_id: string | null;
     created_at: string;
     updated_at: string;
+    enabled: boolean;
+    archived: boolean;
 }
 
 interface DocumentListResponse {
@@ -61,13 +72,18 @@ export default function DocumentsPage() {
     const [pageSize] = useState(20);
     const [loading, setLoading] = useState(true);
     const [keyword, setKeyword] = useState("");
+    const [filterStatus, setFilterStatus] = useState("all"); // all, enabled, disabled
+
+    // Selection state
+    const [selectedDocIds, setSelectedDocIds] = useState<Set<number>>(new Set());
+    const [isAllSelected, setIsAllSelected] = useState(false);
 
     const [uploading, setUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
 
     useEffect(() => {
         loadDocuments();
-    }, [kbId, page]);
+    }, [kbId, page, filterStatus]);
 
     useEffect(() => {
         const indexingDocs = documents.filter(d => d.status === "indexing" || d.status === "pending");
@@ -87,17 +103,82 @@ export default function DocumentsPage() {
                 page_size: pageSize.toString(),
             });
             if (keyword) params.append("keyword", keyword);
+            if (filterStatus === "enabled") params.append("enabled", "true");
+            if (filterStatus === "disabled") params.append("enabled", "false");
 
             const resp = await fetch(`/api/knowledge/datasets/${kbId}/documents?${params}`);
             if (resp.ok) {
                 const data: DocumentListResponse = await resp.json();
                 setDocuments(data.documents);
                 setTotal(data.total);
+                // Reset selection on page change
+                setSelectedDocIds(new Set());
+                setIsAllSelected(false);
             }
         } catch (e) {
             console.error("Failed to load documents:", e);
         } finally {
             setLoading(false);
+        }
+    }
+
+    // Toggle Status
+    async function handleToggleStatus(docId: number, currentEnabled: boolean) {
+        // Optimistic update
+        setDocuments(docs => docs.map(d => d.id === docId ? { ...d, enabled: !currentEnabled } : d));
+
+        try {
+            await fetch(`/api/knowledge/datasets/${kbId}/documents/${docId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ enabled: !currentEnabled })
+            });
+        } catch (e) {
+            console.error("Failed to toggle status:", e);
+            // Revert on error
+            loadDocuments();
+        }
+    }
+
+    // Selection Logic
+    function toggleSelectAll(isSelected: boolean) {
+        setIsAllSelected(isSelected);
+        if (isSelected) {
+            setSelectedDocIds(new Set(documents.map(d => d.id)));
+        } else {
+            setSelectedDocIds(new Set());
+        }
+    }
+
+    function toggleSelect(docId: number) {
+        const newSet = new Set(selectedDocIds);
+        if (newSet.has(docId)) {
+            newSet.delete(docId);
+        } else {
+            newSet.add(docId);
+        }
+        setSelectedDocIds(newSet);
+        setIsAllSelected(newSet.size === documents.length && documents.length > 0);
+    }
+
+    // Batch Actions
+    async function handleBatchAction(action: string) {
+        if (selectedDocIds.size === 0) return;
+        if (action === "delete" && !confirm(`确定要删除选中的 ${selectedDocIds.size} 个文档吗？`)) return;
+
+        try {
+            await fetch(`/api/knowledge/datasets/${kbId}/documents/batch`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    document_ids: Array.from(selectedDocIds),
+                    action
+                })
+            });
+            await loadDocuments();
+            setSelectedDocIds(new Set()); // Clear selection
+        } catch (e) {
+            console.error("Batch action failed:", e);
         }
     }
 
@@ -166,11 +247,44 @@ export default function DocumentsPage() {
         <div className="flex flex-col h-full bg-gray-50 dark:bg-gray-900 p-6">
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
-                <div>
-                    <h2 className="text-xl font-semibold text-gray-900 dark:text-white">文档</h2>
-                    <p className="text-xs text-gray-500 mt-1">{total} 个文档</p>
+                <div className="flex items-center gap-4">
+                    <div>
+                        <h2 className="text-xl font-semibold text-gray-900 dark:text-white">文档</h2>
+                        <p className="text-xs text-gray-500 mt-1">{total} 个文档</p>
+                    </div>
+                    {selectedDocIds.size > 0 && (
+                        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-lg animate-in fade-in slide-in-from-top-2">
+                            <span className="text-xs font-medium text-blue-700">已选 {selectedDocIds.size} 项</span>
+                            <div className="h-4 w-px bg-blue-200 mx-1" />
+                            <Button size="sm" variant="light" className="h-6 min-w-0 px-2 text-blue-700" onPress={() => handleBatchAction("enable")}>启用</Button>
+                            <Button size="sm" variant="light" className="h-6 min-w-0 px-2 text-gray-600" onPress={() => handleBatchAction("disable")}>禁用</Button>
+                            <Button size="sm" variant="light" className="h-6 min-w-0 px-2 text-red-600" onPress={() => handleBatchAction("delete")}>删除</Button>
+                        </div>
+                    )}
                 </div>
                 <div className="flex items-center gap-3">
+                    <Dropdown>
+                        <DropdownTrigger>
+                            <Button
+                                variant="bordered"
+                                size="sm"
+                                className="h-9 min-w-0 px-3 bg-white border-gray-200 text-gray-600"
+                                startContent={<Filter size={14} />}
+                            >
+                                {filterStatus === "all" ? "全部状态" : filterStatus === "enabled" ? "已启用" : "已禁用"}
+                            </Button>
+                        </DropdownTrigger>
+                        <DropdownMenu
+                            onAction={(key) => setFilterStatus(key as string)}
+                            selectedKeys={new Set([filterStatus])}
+                            selectionMode="single"
+                        >
+                            <DropdownItem key="all">全部状态</DropdownItem>
+                            <DropdownItem key="enabled">已启用</DropdownItem>
+                            <DropdownItem key="disabled">已禁用</DropdownItem>
+                        </DropdownMenu>
+                    </Dropdown>
+
                     <Input
                         placeholder="搜索..."
                         value={keyword}
@@ -224,7 +338,15 @@ export default function DocumentsPage() {
                     <table className="w-full text-sm">
                         <thead className="bg-gray-50/80 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 sticky top-0 z-10 backdrop-blur-sm">
                             <tr>
-                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider">文档名称</th>
+                                <th className="px-6 py-3.5 w-12 text-center">
+                                    <Checkbox
+                                        isSelected={isAllSelected}
+                                        onValueChange={toggleSelectAll}
+                                        classNames={{ wrapper: "after:bg-[#155EEF]" }}
+                                    />
+                                </th>
+                                <th className="text-left px-2 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider">文档名称</th>
+                                <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-24">启用</th>
                                 <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-32">状态</th>
                                 <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-24">分段</th>
                                 <th className="text-left px-6 py-3.5 font-medium text-gray-500 text-xs uppercase tracking-wider w-32">字符数</th>
@@ -235,7 +357,7 @@ export default function DocumentsPage() {
                         <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                             {loading ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-20 text-center">
+                                    <td colSpan={8} className="px-6 py-20 text-center">
                                         <div className="flex justify-center">
                                             <Spinner size="lg" />
                                         </div>
@@ -243,7 +365,7 @@ export default function DocumentsPage() {
                                 </tr>
                             ) : documents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={6} className="px-6 py-20 text-center text-gray-500">
+                                    <td colSpan={8} className="px-6 py-20 text-center text-gray-500">
                                         <div className="flex flex-col items-center gap-2">
                                             <div className="w-12 h-12 bg-gray-50 rounded-lg flex items-center justify-center">
                                                 <FileText className="text-gray-300" size={24} />
@@ -258,14 +380,27 @@ export default function DocumentsPage() {
                                     const status = statusConfig[doc.status] || statusConfig.pending;
                                     const StatusIcon = status.icon;
                                     return (
-                                        <tr key={doc.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors group">
-                                            <td className="px-6 py-3">
+                                        <tr key={doc.id} className={`hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors group ${selectedDocIds.has(doc.id) ? "bg-blue-50/30" : ""}`}>
+                                            <td className="px-6 py-3 text-center">
+                                                <Checkbox
+                                                    isSelected={selectedDocIds.has(doc.id)}
+                                                    onValueChange={() => toggleSelect(doc.id)}
+                                                />
+                                            </td>
+                                            <td className="px-2 py-3">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500">
                                                         <FileText size={16} />
                                                     </div>
-                                                    <span className="truncate text-gray-900 dark:text-white font-medium max-w-[300px]">{doc.name}</span>
+                                                    <span className={`truncate font-medium max-w-[300px] ${doc.enabled ? "text-gray-900" : "text-gray-400"}`}>{doc.name}</span>
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-3">
+                                                <Switch
+                                                    size="sm"
+                                                    isSelected={doc.enabled}
+                                                    onValueChange={() => handleToggleStatus(doc.id, doc.enabled)}
+                                                />
                                             </td>
                                             <td className="px-6 py-3">
                                                 <Chip

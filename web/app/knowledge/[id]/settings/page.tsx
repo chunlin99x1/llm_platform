@@ -25,6 +25,10 @@ interface KnowledgeBase {
     word_count: number;
     created_at: string;
     updated_at: string;
+    indexing_config: {
+        chunk_size?: number;
+        chunk_overlap?: number;
+    } | null;
 }
 
 const retrievalModes = [
@@ -44,6 +48,8 @@ export default function SettingsPage() {
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     const [retrievalMode, setRetrievalMode] = useState("hybrid");
+    const [chunkSize, setChunkSize] = useState("500");
+    const [chunkOverlap, setChunkOverlap] = useState("50");
 
     useEffect(() => {
         loadKnowledgeBase();
@@ -58,6 +64,10 @@ export default function SettingsPage() {
                 setName(data.name);
                 setDescription(data.description || "");
                 setRetrievalMode(data.retrieval_mode);
+                if (data.indexing_config) {
+                    setChunkSize(data.indexing_config.chunk_size?.toString() || "500");
+                    setChunkOverlap(data.indexing_config.chunk_overlap?.toString() || "50");
+                }
             }
         } catch (e) {
             console.error("Failed to load:", e);
@@ -76,6 +86,10 @@ export default function SettingsPage() {
                     name,
                     description,
                     retrieval_mode: retrievalMode,
+                    indexing_config: {
+                        chunk_size: parseInt(chunkSize) || 500,
+                        chunk_overlap: parseInt(chunkOverlap) || 50
+                    }
                 }),
             });
 
@@ -146,6 +160,46 @@ export default function SettingsPage() {
                                 inputWrapper: "border-gray-300"
                             }}
                         />
+                    </div>
+                </div>
+
+                {/* 分段配置 */}
+                <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
+                    <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center gap-2">
+                        <FileText size={18} className="text-gray-400" />
+                        <h3 className="text-sm font-semibold text-gray-900 dark:text-white">分段配置</h3>
+                    </div>
+                    <div className="p-6">
+                        <div className="grid grid-cols-2 gap-6">
+                            <Input
+                                type="number"
+                                label="分段长度 (Tokens)"
+                                placeholder="500"
+                                value={chunkSize}
+                                onValueChange={setChunkSize}
+                                labelPlacement="outside"
+                                variant="bordered"
+                                description="默认值为 500。每个分段的最大 Token 数量。"
+                                classNames={{
+                                    label: "text-sm font-medium text-gray-700 mb-1",
+                                    inputWrapper: "border-gray-300"
+                                }}
+                            />
+                            <Input
+                                type="number"
+                                label="分段重叠 (Overlap)"
+                                placeholder="50"
+                                value={chunkOverlap}
+                                onValueChange={setChunkOverlap}
+                                labelPlacement="outside"
+                                variant="bordered"
+                                description="默认值为 50。相邻分段之间的重叠 Token 数量。"
+                                classNames={{
+                                    label: "text-sm font-medium text-gray-700 mb-1",
+                                    inputWrapper: "border-gray-300"
+                                }}
+                            />
+                        </div>
                     </div>
                 </div>
 
