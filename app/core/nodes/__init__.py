@@ -44,14 +44,14 @@ async def execute_node(
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     执行节点，返回执行结果的生成器。
-    
+
     Yields:
         事件字典，包含：
         - type: 事件类型 (output, result)
         - data: 事件数据
     """
     executor = NODE_EXECUTORS.get(node_type)
-    
+
     if executor:
         async for event in executor(node_id, node_data, state, edges):
             yield event
