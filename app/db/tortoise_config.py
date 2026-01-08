@@ -6,9 +6,9 @@ Tortoise ORM 配置
 Author: chunlin
 """
 
-from app.core.config import load_settings
+from app.configs import get_settings
 
-settings = load_settings()
+settings = get_settings()
 
 # Tortoise ORM 配置（用于 aerich）
 TORTOISE_ORM = {

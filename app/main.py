@@ -10,6 +10,7 @@ from app.api.routers.workflow import router as workflow_router
 from app.api.routers.workflow_nodes import router as workflow_nodes_router
 from app.api.routers.workflow_stream import router as workflow_stream_router
 from app.api.routers.workflow_publish import router as workflow_publish_router
+from app.api.routers.knowledge import router as knowledge_router
 from app.db.db import close_db, init_db
 
 
@@ -46,4 +47,5 @@ app.include_router(workflow_router)
 app.include_router(workflow_nodes_router)
 app.include_router(workflow_stream_router)
 app.include_router(workflow_publish_router)
+app.include_router(knowledge_router)
 app.include_router(apps_router)

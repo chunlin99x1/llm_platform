@@ -1,0 +1,21 @@
+"""
+RAG 核心模块
+
+知识库检索增强生成功能。
+
+Author: chunlin
+"""
+
+from .chunker import DocumentChunker
+from .embedding import EmbeddingService
+from .weaviate_client import WeaviateClient
+from .retriever import HybridRetriever
+from .reranker import BGEReranker
+
+__all__ = [
+    "DocumentChunker",
+    "EmbeddingService", 
+    "WeaviateClient",
+    "HybridRetriever",
+    "BGEReranker",
+]
