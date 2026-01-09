@@ -57,6 +57,7 @@ class AgentChatRequest(BaseModel):
     enabled_tools: Optional[List[str]] = None
     llm_config: Optional[Dict[str, Any]] = None
     mcp_servers: Optional[List[Dict[str, Any]]] = None
+    knowledge_base_ids: Optional[List[int]] = None  # 关联的知识库 ID 列表
     inputs: Dict[str, Any] = Field(default_factory=dict)
 
 

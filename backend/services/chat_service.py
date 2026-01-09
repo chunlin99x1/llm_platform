@@ -101,7 +101,8 @@ class ChatService:
         history: List[BaseMessage],
         inputs: Dict[str, Any] = None,
         mcp_servers: List[Dict[str, Any]] = None,
-        model_config: Dict[str, Any] = None
+        model_config: Dict[str, Any] = None,
+        knowledge_base_ids: List[int] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process agent chat with streaming response.
@@ -119,6 +120,7 @@ class ChatService:
             enabled_tools: List of enabled tool names
             history: Chat history as LangChain messages
             inputs: Optional variable inputs for substitution
+            knowledge_base_ids: Optional list of knowledge base IDs for RAG
             
         Yields:
             Event dictionaries for streaming response
@@ -139,7 +141,8 @@ class ChatService:
             messages=history + [user_msg],
             enabled_tools=enabled_tools,
             mcp_servers=mcp_servers,
-            llm_config=model_config
+            llm_config=model_config,
+            knowledge_base_ids=knowledge_base_ids
         ):
             if item["type"] == "message":
                 # Persist intermediate messages (AI thinking or tool execution)

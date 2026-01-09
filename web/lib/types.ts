@@ -79,6 +79,14 @@ export interface ProviderModel {
   config?: any;
 }
 
+export interface KnowledgeBase {
+  id: number;
+  name: string;
+  description?: string | null;
+  document_count: number;
+  created_at: string;
+}
+
 export type AgentChatRequest = {
   session_id?: string;
   input: string;
@@ -86,6 +94,7 @@ export type AgentChatRequest = {
   enabled_tools?: string[];
   mcp_servers?: MCPServer[];
   llm_config?: Record<string, any>;
+  knowledge_base_ids?: number[];  // 关联的知识库 ID 列表
   inputs?: Record<string, unknown>;
 };
 

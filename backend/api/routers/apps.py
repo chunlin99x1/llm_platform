@@ -105,7 +105,8 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
             history=history,
             inputs=payload.inputs,
             mcp_servers=mcp_servers,
-            model_config=payload.llm_config
+            model_config=payload.llm_config,
+            knowledge_base_ids=payload.knowledge_base_ids
         ):
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         

@@ -47,6 +47,81 @@ async def _invoke_tool(tool_obj: Any, args: Dict[str, Any]) -> str:
             return f"工具 '{tool_name}' 执行失败: {error_msg}\nDebug Trace: {error_trace}"
 
 
+async def _retrieve_from_knowledge_bases(kb_ids: List[int], query: str, top_k: int = 3) -> str:
+    """
+    从多个知识库中检索相关内容。
+
+    Args:
+        kb_ids: 知识库 ID 列表
+        query: 用户查询
+        top_k: 每个知识库返回的最大结果数
+
+    Returns:
+        格式化的检索结果文本
+    """
+    from database.models import KnowledgeBase, ModelProvider
+    from core.rag.db_conn import get_weaviate_client
+    from core.rag.retriever import WeaviateHybridRetriever, RetrievalMode
+    from core.rag.embedding import EmbeddingService
+
+    all_results = []
+
+    for kb_id in kb_ids:
+        try:
+            kb = await KnowledgeBase.get_or_none(id=kb_id)
+            if not kb:
+                continue
+
+            # 获取 embedding 凭证
+            provider_obj = await ModelProvider.get_or_none(name=kb.embedding_provider)
+            if not provider_obj:
+                logger.warning(f"知识库 {kb.name} 的 embedding provider 未配置")
+                continue
+
+            # 创建 embedding 服务
+            embedding_svc = EmbeddingService(
+                provider=kb.embedding_provider,
+                model=kb.embedding_model,
+                api_key=provider_obj.api_key,
+                api_base=provider_obj.api_base
+            )
+
+            # 创建检索器
+            client = get_weaviate_client()
+            retriever = WeaviateHybridRetriever(
+                weaviate_client=client,
+                collection_name=f"kb_{kb_id}",
+                embedding_service=embedding_svc,
+                top_k=top_k,
+                alpha=0.5
+            )
+
+            # 检索
+            results = await retriever.retrieve_raw(query)
+
+            for r in results:
+                all_results.append({
+                    "kb_name": kb.name,
+                    "content": r.content,
+                    "score": r.score or 0
+                })
+
+        except Exception as e:
+            logger.error(f"知识库 {kb_id} 检索失败: {e}")
+            continue
+
+    # 按分数排序并格式化输出
+    all_results.sort(key=lambda x: x.get("score", 0), reverse=True)
+
+    if not all_results:
+        return ""
+
+    formatted = []
+    for i, r in enumerate(all_results[:top_k * 2], 1):  # 最多返回 top_k * 2 条
+        formatted.append(f"[{i}] 来源：{r['kb_name']}\n{r['content']}")
+
+    return "\n\n---\n\n".join(formatted)
+
 async def agent_stream(
     *,
     system_prompt: Optional[str] = None,
@@ -54,6 +129,7 @@ async def agent_stream(
     enabled_tools: Optional[List[str]] = None,
     mcp_servers: Optional[List[Dict[str, Any]]] = None,
     llm_config: Optional[Dict[str, Any]] = None,
+    knowledge_base_ids: Optional[List[int]] = None,
     max_iters: int = 8,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
@@ -62,7 +138,7 @@ async def agent_stream(
     try:
         if not llm_config:
             raise ValueError("缺少 llm_config 参数。请在请求中提供模型配置。")
-        
+
         # llm_config should look like: {"provider": "...", "model": "...", "parameters": {...}}
         llm = await create_llm_instance(
             provider=llm_config.get("provider"),
@@ -71,6 +147,33 @@ async def agent_stream(
         )
         if not llm_config.get("provider") or not llm_config.get("model"):
             raise ValueError("llm_config 缺少 provider 或 model 字段。")
+
+        # 知识库检索：从用户输入获取相关内容
+        rag_context = ""
+        if knowledge_base_ids and len(knowledge_base_ids) > 0:
+            # 获取最后一条用户消息作为查询
+            user_query = ""
+            for msg in reversed(messages):
+                if isinstance(msg, HumanMessage):
+                    user_query = msg.content
+                    break
+
+            if user_query:
+                rag_context = await _retrieve_from_knowledge_bases(knowledge_base_ids, user_query)
+
+        # 构建增强的 system prompt
+        enhanced_prompt = system_prompt or ""
+        if rag_context:
+            enhanced_prompt = f"""{enhanced_prompt}
+
+## 相关参考资料
+以下是从知识库中检索到的相关内容，请在回答时参考这些信息：
+
+{rag_context}
+
+请根据以上参考资料和你的知识来回答用户的问题。如果参考资料中没有相关信息，请基于你的知识回答。"""
+
+        print(enhanced_prompt)
         local_tools = resolve_tools(enabled_tools)
 
         # 使用上下文管理器加载 MCP 工具
@@ -84,8 +187,8 @@ async def agent_stream(
                 llm_with_tools = llm
 
             all_messages = messages.copy()
-            if system_prompt:
-                all_messages.insert(0, SystemMessage(content=system_prompt))
+            if enhanced_prompt:
+                all_messages.insert(0, SystemMessage(content=enhanced_prompt))
 
             # ✅ 整个循环必须在 async with 内部！
             for iteration in range(max_iters):
@@ -170,10 +273,10 @@ async def agent_stream(
                         if t.name == tool_name:
                             tool_obj = t
                             break
-                    
+
                     # 获取 MCP 服务器名称（如果是 MCP 工具）
                     mcp_server_name = getattr(tool_obj, 'mcp_server_name', None) if tool_obj else None
-                    
+
                     yield {
                         "type": "trace",
                         "id": tool_id,
@@ -216,7 +319,7 @@ async def agent_stream(
             for idx, sub_exc in enumerate(e.exceptions):
                 sub_errors.append(f"[{idx}] {type(sub_exc).__name__}: {sub_exc}")
             error_details = f"{str(e)}\n详细错误:\n" + "\n".join(sub_errors)
-        
+
         import traceback
         logger.error(f"Agent 执行错误: {error_details}\n{traceback.format_exc()}")
         yield {"type": "error", "content": f"Agent 执行错误: {error_details}"}

@@ -31,7 +31,7 @@ import {
 import "reactflow/dist/style.css";
 
 import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChatStream, listTools } from "@/lib/api";
-import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer, ProviderModel } from "@/lib/types";
+import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer, ProviderModel, KnowledgeBase } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 // Import extracted components
@@ -52,6 +52,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [app, setApp] = useState<AppItem | null>(null);
   const [availableTools, setAvailableTools] = useState<ToolCategory[]>([]);
   const [models, setModels] = useState<ProviderModel[]>([]);
+  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
 
   // Workflow State
   const [selectedId, setSelectedId] = useState<string>("");
@@ -63,6 +64,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [enabledTools, setEnabledTools] = useState<string[]>([]);
   const [variables, setVariables] = useState<PromptVariable[]>([]);
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+  const [selectedKBs, setSelectedKBs] = useState<number[]>([]);  // 选中的知识库 ID
   const [modelConfig, setModelConfig] = useState<Record<string, any>>({
     provider: "openai",
     model: "gpt-4o",
@@ -103,6 +105,13 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           setModels(allModels);
         }
 
+        // Fetch knowledge bases
+        const kbRes = await fetch(`${API_BASE_URL}/knowledge/datasets`);
+        if (kbRes.ok) {
+          const kbData = await kbRes.json();
+          setKnowledgeBases(kbData);
+        }
+
         const [appData, wfData, toolsData] = await Promise.all([
           getApp(appId),
           getWorkflow(appId),
@@ -118,6 +127,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           setEnabledTools(g.enabled_tools || []);
           setVariables((g.prompt_variables as PromptVariable[]) || []);
           setMcpServers((g.mcp_servers as MCPServer[]) || []);
+          setSelectedKBs((g.knowledge_base_ids as number[]) || []);  // 加载选中的知识库
           if (g.model_config) {
             setModelConfig(g.model_config);
           }
@@ -235,7 +245,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             enabled_tools: enabledTools,
             prompt_variables: variables,
             mcp_servers: mcpServers,
-            model_config: modelConfig
+            model_config: modelConfig,
+            knowledge_base_ids: selectedKBs
           }
           : { nodes, edges };
       await updateWorkflow(appId, { graph: graphPayload });
@@ -244,7 +255,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     } finally {
       setSaving(false);
     }
-  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, modelConfig, nodes, edges]);
+  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, modelConfig, selectedKBs, nodes, edges]);
 
   // 注册快捷键
   useWorkflowShortcuts({
@@ -279,6 +290,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             enabled_tools: enabledTools,
             mcp_servers: mcpServers,
             llm_config: modelConfig,
+            knowledge_base_ids: selectedKBs,
             inputs: cleanInputs,
           },
           (event) => {
@@ -463,6 +475,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 models={models}
                 modelConfig={modelConfig}
                 setModelConfig={setModelConfig}
+                knowledgeBases={knowledgeBases}
+                selectedKBs={selectedKBs}
+                setSelectedKBs={setSelectedKBs}
               />
               <AgentPreview
                 runOutput={runOutput}
