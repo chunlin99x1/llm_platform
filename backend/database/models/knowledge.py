@@ -8,11 +8,12 @@ from tortoise.models import Model
 
 class KnowledgeBase(Model):
     """知识库"""
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=255)
     description = fields.TextField(null=True)
     embedding_provider = fields.CharField(max_length=32, default="openai")
     embedding_model = fields.CharField(max_length=128, null=True)
+    rerank_model = fields.CharField(max_length=128, null=True)
     retrieval_mode = fields.CharField(max_length=32, default="hybrid")
     indexing_config = fields.JSONField(null=True)  # 默认索引配置：chunk_size, overlap 等
     created_at = fields.DatetimeField(auto_now_add=True)
@@ -21,8 +22,8 @@ class KnowledgeBase(Model):
 
 class Document(Model):
     """文档"""
-    id = fields.IntField(pk=True)
-    knowledge_base_id = fields.IntField(index=True)
+    id = fields.IntField(primary_key=True)
+    knowledge_base_id = fields.IntField(db_index=True)
     name = fields.CharField(max_length=255)
     content = fields.TextField()
     metadata = fields.JSONField(null=True)
@@ -40,8 +41,8 @@ class Document(Model):
 
 class DocumentSegment(Model):
     """文档片段"""
-    id = fields.IntField(pk=True)
-    document_id = fields.IntField(index=True)
+    id = fields.IntField(primary_key=True)
+    document_id = fields.IntField(db_index=True)
     content = fields.TextField()
     position = fields.IntField(default=0)
     tokens = fields.IntField(default=0)

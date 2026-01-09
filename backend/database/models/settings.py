@@ -13,7 +13,7 @@ from tortoise.models import Model
 class ModelProvider(Model):
     """模型提供商配置"""
     
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=50, unique=True)  # e.g. openai, dashscope
     description = fields.CharField(max_length=255, null=True)
     # provider_type 移除，改为由关联的 ProviderModel 定义
@@ -33,7 +33,7 @@ class ModelProvider(Model):
 class ProviderModel(Model):
     """具体的模型配置"""
     
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     provider = fields.ForeignKeyField("models.ModelProvider", related_name="models", on_delete=fields.CASCADE)
     name = fields.CharField(max_length=100)  # e.g. gpt-4, text-embedding-ada-002
     description = fields.CharField(max_length=255, null=True)
@@ -51,7 +51,7 @@ class ProviderModel(Model):
 class User(Model):
     """用户"""
     
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     email = fields.CharField(max_length=128, unique=True)
     password_hash = fields.CharField(max_length=256)  # bcrypt hash
     name = fields.CharField(max_length=64, null=True)

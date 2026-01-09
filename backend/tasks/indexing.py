@@ -82,9 +82,23 @@ def index_document_task(
             })
 
             # 2. 向量化
+            # 获取 Provider 凭证
+            from database.models import ModelProvider
+            
+            api_key = None
+            api_base = None
+            
+            if embedding_provider and embedding_provider != "local":
+                provider_obj = await ModelProvider.get_or_none(name=embedding_provider)
+                if provider_obj:
+                    api_key = provider_obj.api_key
+                    api_base = provider_obj.api_base
+
             embedding = EmbeddingService(
                 provider=embedding_provider,
-                model=embedding_model
+                model=embedding_model,
+                api_key=api_key,
+                api_base=api_base
             )
 
             texts = [seg.content for seg in segments]

@@ -16,6 +16,9 @@ import {
     DropdownMenu,
     DropdownItem,
     Spinner,
+    Select,
+    SelectItem,
+    Selection,
 } from "@heroui/react";
 import {
     Plus,
@@ -25,6 +28,7 @@ import {
     MoreHorizontal,
     ChevronDown,
     LayoutGrid,
+    Cpu,
 } from "lucide-react";
 import Link from "next/link";
 import { Filter } from "lucide-react";
@@ -53,10 +57,22 @@ export default function KnowledgePage() {
     const [newRetrievalMode, setNewRetrievalMode] = useState("hybrid");
     const [creating, setCreating] = useState(false);
 
+    // Model State
+    interface ModelOption {
+        provider: string;
+        model: string;
+        name: string; // Display name
+    }
+    const [embeddingModels, setEmbeddingModels] = useState<ModelOption[]>([]);
+    const [rerankModels, setRerankModels] = useState<ModelOption[]>([]);
+    const [selectedModel, setSelectedModel] = useState<Selection>(new Set([]));
+    const [selectedRerankModel, setSelectedRerankModel] = useState<Selection>(new Set([]));
+
     const { confirm } = useConfirm();
 
     useEffect(() => {
         loadKnowledgeBases();
+        loadModels();
     }, []);
 
     async function loadKnowledgeBases() {
@@ -74,8 +90,69 @@ export default function KnowledgePage() {
         }
     }
 
+    async function loadModels() {
+        try {
+            const resp = await fetch("/api/settings/model-providers");
+            if (resp.ok) {
+                const providers = await resp.json();
+                const embedOptions: ModelOption[] = [];
+                const rerankOptions: ModelOption[] = [];
+
+                providers.forEach((p: any) => {
+                    if (p.models) {
+                        p.models.forEach((m: any) => {
+                            if (m.model_type === "embedding") {
+                                embedOptions.push({
+                                    provider: p.name,
+                                    model: m.name,
+                                    name: `${p.name} - ${m.name}`
+                                });
+                            } else if (m.model_type === "rerank") {
+                                rerankOptions.push({
+                                    provider: p.name,
+                                    model: m.name,
+                                    name: `${p.name} - ${m.name}`
+                                });
+                            }
+                        });
+                    }
+                });
+
+                setEmbeddingModels(embedOptions);
+                setRerankModels(rerankOptions);
+
+                if (embedOptions.length > 0) {
+                    // Default select the first one if not set
+                    setSelectedModel(new Set([`${embedOptions[0].provider}:${embedOptions[0].model}`]));
+                }
+
+                if (rerankOptions.length > 0) {
+                    setSelectedRerankModel(new Set([`${rerankOptions[0].provider}:${rerankOptions[0].model}`]));
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load models:", e);
+        }
+    }
+
     async function createKnowledgeBase() {
         if (!newName.trim()) return;
+
+        // Parse selected model
+        const modelKey = Array.from(selectedModel)[0] as string;
+        if (!modelKey) {
+            toast.error("请选择 Embedding 模型");
+            return;
+        }
+        const [provider, model] = modelKey.split(":");
+
+        // Parse rerank model
+        let rerankModelName = null;
+        const rerankKey = Array.from(selectedRerankModel)[0] as string;
+        if (rerankKey) {
+            const [_, rModel] = rerankKey.split(":");
+            rerankModelName = rModel;
+        }
 
         setCreating(true);
         try {
@@ -86,6 +163,9 @@ export default function KnowledgePage() {
                     name: newName,
                     description: newDescription,
                     retrieval_mode: newRetrievalMode,
+                    embedding_provider: provider,
+                    embedding_model: model,
+                    rerank_model: rerankModelName
                 }),
             });
 
@@ -305,6 +385,50 @@ export default function KnowledgePage() {
                                 inputWrapper: "border-gray-300"
                             }}
                         />
+
+                        <Select
+                            label="Embedding 模型"
+                            placeholder="选择嵌入模型"
+                            selectedKeys={selectedModel}
+                            onSelectionChange={setSelectedModel}
+                            labelPlacement="outside"
+                            variant="bordered"
+                            radius="md"
+                            startContent={<Cpu size={18} className="text-gray-400" />}
+                            classNames={{
+                                label: "text-sm font-medium text-gray-700 mb-1",
+                                trigger: "h-10 border-gray-300 data-[hover=true]:border-gray-400 bg-white",
+                                value: "text-gray-800"
+                            }}
+                        >
+                            {embeddingModels.map((item) => (
+                                <SelectItem key={`${item.provider}:${item.model}`} textValue={item.name}>
+                                    {item.name}
+                                </SelectItem>
+                            ))}
+                        </Select>
+
+                        <Select
+                            label="Rerank 模型 (可选)"
+                            placeholder="选择重排序模型"
+                            selectedKeys={selectedRerankModel}
+                            onSelectionChange={setSelectedRerankModel}
+                            labelPlacement="outside"
+                            variant="bordered"
+                            radius="md"
+                            startContent={<Filter size={18} className="text-gray-400" />}
+                            classNames={{
+                                label: "text-sm font-medium text-gray-700 mb-1",
+                                trigger: "h-10 border-gray-300 data-[hover=true]:border-gray-400 bg-white",
+                                value: "text-gray-800"
+                            }}
+                        >
+                            {rerankModels.map((item) => (
+                                <SelectItem key={`${item.provider}:${item.model}`} textValue={item.name}>
+                                    {item.name}
+                                </SelectItem>
+                            ))}
+                        </Select>
                         {/* 简化检索模式选择，暂时隐藏高级配置，保持界面清爽 */}
                     </ModalBody>
                     <ModalFooter>

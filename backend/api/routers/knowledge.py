@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, UploadFile, File, Form
 from pydantic import BaseModel
 import logging
 
-from database.models import KnowledgeBase, Document, DocumentSegment
+from database.models import KnowledgeBase, Document, DocumentSegment, ModelProvider
 from core.rag.chunker import DocumentChunker
 from core.rag.embedding import EmbeddingService
 from core.rag.db_conn import get_weaviate_client
@@ -33,6 +33,7 @@ class CreateKnowledgeBaseRequest(BaseModel):
     description: Optional[str] = None
     embedding_provider: str = "openai"
     embedding_model: Optional[str] = None
+    rerank_model: Optional[str] = None
     retrieval_mode: str = "hybrid"  # semantic, keyword, hybrid
 
 
@@ -74,6 +75,7 @@ class UpdateKnowledgeBaseRequest(BaseModel):
     description: Optional[str] = None
     embedding_provider: Optional[str] = None
     embedding_model: Optional[str] = None
+    rerank_model: Optional[str] = None
     retrieval_mode: Optional[str] = None  # semantic, keyword, hybrid
     indexing_config: Optional[dict] = None  # 索引配置
 
@@ -85,6 +87,7 @@ class KnowledgeBaseDetailResponse(BaseModel):
     description: Optional[str]
     embedding_provider: str
     embedding_model: Optional[str]
+    rerank_model: Optional[str]
     retrieval_mode: str
     indexing_config: Optional[dict]
     document_count: int
@@ -195,6 +198,7 @@ async def create_knowledge_base(payload: CreateKnowledgeBaseRequest):
         description=payload.description,
         embedding_provider=payload.embedding_provider,
         embedding_model=payload.embedding_model,
+        rerank_model=payload.rerank_model,
         retrieval_mode=payload.retrieval_mode
     )
 
@@ -376,9 +380,21 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
 
     # 初始化服务
     weaviate =get_weaviate_client()
+    
+    # 获取 Provider 凭证
+    api_key = None
+    api_base = None
+    if kb.embedding_provider and kb.embedding_provider != "local":
+        provider_obj = await ModelProvider.get_or_none(name=kb.embedding_provider)
+        if provider_obj:
+            api_key = provider_obj.api_key
+            api_base = provider_obj.api_base
+
     embedding = EmbeddingService(
         provider=kb.embedding_provider,
-        model=kb.embedding_model
+        model=kb.embedding_model,
+        api_key=api_key,
+        api_base=api_base
     )
 
     # 确定检索模式
@@ -403,7 +419,22 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
 
         # Rerank
         if payload.rerank and results:
-            reranker = DashScopeReranker()
+            # 获取 Rerank Provider 凭证 (假设 rerank 目前都在 dashscope, 或者根据模型名推断，或者添加 rerank_provider 字段)
+            # 暂时假设 rerank model 也是从 ModelProvider 管理的，且目前只有 DashScope 支持 Rerank
+            # 如果 kb.rerank_model 存在，则尝试获取其 provider（或者统一用 dashscope）
+            
+            rerank_api_key = None
+            if kb.rerank_model:
+                # 简单处理：假设 rerank model 都是 dashscope 提供的，除非有 rerank_provider 字段
+                # 由于 KnowledgeBase 暂时没加 rerank_provider，先尝试用 "dashscope" 获取凭证
+                provider_obj = await ModelProvider.get_or_none(name="dashscope") 
+                if provider_obj:
+                    rerank_api_key = provider_obj.api_key
+
+            reranker = DashScopeReranker(
+                model_name=kb.rerank_model or "gte-rerank",
+                api_key=rerank_api_key
+            )
             docs_for_rerank = [
                 {"content": r.content, "metadata": r.metadata}
                 for r in results
@@ -500,6 +531,8 @@ async def update_knowledge_base(kb_id: int, payload: UpdateKnowledgeBaseRequest)
         kb.embedding_provider = payload.embedding_provider
     if payload.embedding_model is not None:
         kb.embedding_model = payload.embedding_model
+    if hasattr(payload, 'rerank_model') and payload.rerank_model is not None:
+         kb.rerank_model = payload.rerank_model
     if payload.retrieval_mode is not None:
         kb.retrieval_mode = payload.retrieval_mode
     if payload.indexing_config is not None:
@@ -518,6 +551,7 @@ async def update_knowledge_base(kb_id: int, payload: UpdateKnowledgeBaseRequest)
         description=kb.description,
         embedding_provider=kb.embedding_provider,
         embedding_model=kb.embedding_model,
+        rerank_model=kb.rerank_model,
         retrieval_mode=kb.retrieval_mode,
         indexing_config=kb.indexing_config,
         document_count=doc_count,
@@ -544,6 +578,7 @@ async def get_knowledge_base_detail(kb_id: int):
         description=kb.description,
         embedding_provider=kb.embedding_provider,
         embedding_model=kb.embedding_model,
+        rerank_model=kb.rerank_model,
         retrieval_mode=kb.retrieval_mode,
         indexing_config=kb.indexing_config,
         document_count=doc_count,

@@ -10,7 +10,7 @@ class App(Model):
     """
     应用：对标 Dify 的 App 概念（workflow/chatflow/agent 等）。
     """
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=255, unique=True)
     mode = fields.CharField(max_length=32, default="workflow")  # workflow/chatflow/agent
     published = fields.BooleanField(default=False)  # 是否已发布

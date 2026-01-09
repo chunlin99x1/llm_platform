@@ -33,10 +33,12 @@ class DashScopeReranker:
     def __init__(
         self, 
         model_name: str = "gte-rerank",
-        top_n: int = 10
+        top_n: int = 10,
+        api_key: Optional[str] = None
     ):
         self.model_name = model_name
         self.top_n = top_n
+        self.api_key = api_key
         self._reranker = None
     
     def _get_reranker(self):
@@ -49,7 +51,7 @@ class DashScopeReranker:
             self._reranker = DashScopeRerank(
                 model=self.model_name,
                 top_n=self.top_n,
-                dashscope_api_key=settings.dashscope_api_key
+                dashscope_api_key=self.api_key or settings.dashscope_api_key
             )
         return self._reranker
     

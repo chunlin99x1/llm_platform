@@ -10,7 +10,7 @@ from .app import App
 
 class WorkflowDef(Model):
     """工作流定义（图结构 JSON）"""
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     app: fields.OneToOneRelation[App] = fields.OneToOneField(
         "models.App", related_name="workflow_def"
     )
@@ -21,7 +21,7 @@ class WorkflowDef(Model):
 
 class WorkflowRun(Model):
     """工作流运行记录"""
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     workflow_name = fields.CharField(max_length=255)
     status = fields.CharField(max_length=32, default="pending")
     input_text = fields.TextField(null=True)
@@ -31,7 +31,7 @@ class WorkflowRun(Model):
 
 class NodeRun(Model):
     """节点运行记录"""
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     workflow_run: fields.ForeignKeyRelation[WorkflowRun] = fields.ForeignKeyField(
         "models.WorkflowRun", related_name="nodes"
     )

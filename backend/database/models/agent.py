@@ -8,7 +8,7 @@ from tortoise.models import Model
 
 class Agent(Model):
     """智能体"""
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=255, unique=True)
     description = fields.TextField(null=True)
     system_prompt = fields.TextField(null=True)
@@ -18,7 +18,7 @@ class Agent(Model):
 
 class AgentSession(Model):
     """智能体会话"""
-    id = fields.UUIDField(pk=True)
+    id = fields.UUIDField(primary_key=True)
     agent: fields.ForeignKeyRelation["Agent"] = fields.ForeignKeyField(
         "models.Agent", related_name="sessions"
     )
@@ -28,7 +28,7 @@ class AgentSession(Model):
 
 class AgentMessage(Model):
     """智能体消息"""
-    id = fields.IntField(pk=True)
+    id = fields.IntField(primary_key=True)
     session: fields.ForeignKeyRelation["AgentSession"] = fields.ForeignKeyField(
         "models.AgentSession", related_name="messages"
     )
