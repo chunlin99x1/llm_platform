@@ -12,7 +12,7 @@ from tortoise.models import Model
 
 class ModelProvider(Model):
     """模型提供商配置"""
-    
+
     id = fields.IntField(primary_key=True)
     name = fields.CharField(max_length=50, unique=True)  # e.g. openai, dashscope
     description = fields.CharField(max_length=255, null=True)
@@ -23,16 +23,25 @@ class ModelProvider(Model):
     config = fields.JSONField(default=dict)  # 额外配置
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
-    
+
     models: fields.ReverseRelation["ProviderModel"]
-    
+
     class Meta:
         table = "model_providers"
+
+"""
+模型提供商 (Model Provider) 的 Config
+用途: 存储该提供商级别的全局配置，通常是除 API Key 之外的认证信息。
+例子:
+OpenAI: 可能存储 organization_id。
+Azure OpenAI: 可能存储 api_version 或 resource_name。
+自定义部署: 可能会存储特殊的 Headers。
+"""
 
 
 class ProviderModel(Model):
     """具体的模型配置"""
-    
+
     id = fields.IntField(primary_key=True)
     provider = fields.ForeignKeyField("models.ModelProvider", related_name="models", on_delete=fields.CASCADE)
     name = fields.CharField(max_length=100)  # e.g. gpt-4, text-embedding-ada-002
@@ -42,7 +51,7 @@ class ProviderModel(Model):
     config = fields.JSONField(default=dict)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
-    
+
     class Meta:
         table = "provider_models"
         unique_together = (("provider", "name", "model_type"),)
@@ -50,7 +59,7 @@ class ProviderModel(Model):
 
 class User(Model):
     """用户"""
-    
+
     id = fields.IntField(primary_key=True)
     email = fields.CharField(max_length=128, unique=True)
     password_hash = fields.CharField(max_length=256)  # bcrypt hash
@@ -60,6 +69,6 @@ class User(Model):
     last_login_at = fields.DatetimeField(null=True)
     created_at = fields.DatetimeField(auto_now_add=True)
     updated_at = fields.DatetimeField(auto_now=True)
-    
+
     class Meta:
         table = "users"
