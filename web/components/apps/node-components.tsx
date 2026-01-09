@@ -174,7 +174,7 @@ export function LLMNode({ data, selected }: { data: any, selected: boolean }) {
             <div className="space-y-2">
                 <div className="flex items-center gap-1.5">
                     <span className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Model</span>
-                    <span className="text-[11px] font-semibold text-gray-700">GPT-4o</span>
+                    <span className="text-[11px] font-semibold text-gray-700">{data.model || "未配置"}</span>
                 </div>
                 <div className="text-[11px] text-gray-500 line-clamp-2 leading-relaxed">
                     {data.prompt ? (

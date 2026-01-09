@@ -26,6 +26,7 @@ import {
     Plus,
     Repeat,
     FileCode,
+    BookOpen,
 } from "lucide-react";
 import type { Node, Edge } from "reactflow";
 import { VariableSelector } from "./workflow-variable-selector";
@@ -51,37 +52,68 @@ export function WorkflowConfigPanel({
 }: WorkflowConfigPanelProps) {
     // 模型列表状态
     const [models, setModels] = useState<{ id: string; name: string; provider: string }[]>([]);
+    // 知识库列表状态
+    const [knowledgeBases, setKnowledgeBases] = useState<{ id: number; name: string }[]>([]);
     // 变量类型状态
     const [variableTypes, setVariableTypes] = useState<{ type: string; label: string; color: string }[]>([]);
 
-    // 从后端获取模型列表
+    // 从后端获取模型列表和知识库列表
     useEffect(() => {
-        fetch('/api/workflow/models')
+        // 获取模型列表
+        fetch('/api/settings/model-providers')
             .then(res => res.json())
-            .then(data => setModels(data.models || []))
+            .then((providers: any[]) => {
+                const loadedModels: { id: string; name: string; provider: string }[] = [];
+                providers.forEach((p: any) => {
+                    if (p.models) {
+                        p.models.forEach((m: any) => {
+                            if (m.model_type === "llm") {
+                                loadedModels.push({
+                                    id: m.name,
+                                    name: m.name,
+                                    provider: p.name
+                                });
+                            }
+                        });
+                    }
+                });
+                if (loadedModels.length > 0) {
+                    setModels(loadedModels);
+                } else {
+                    // 回退到默认模型
+                    setModels([
+                        { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
+                        { id: 'qwen-max', name: 'Qwen Max', provider: 'dashscope' },
+                    ]);
+                }
+            })
             .catch(() => {
                 // 回退到默认模型
                 setModels([
                     { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai' },
-                    { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai' },
-                    { id: 'deepseek-chat', name: 'DeepSeek Chat', provider: 'deepseek' },
+                    { id: 'qwen-max', name: 'Qwen Max', provider: 'dashscope' },
                 ]);
             });
 
-        // 获取变量类型
-        fetch('/api/workflow/variable-types')
+        // 获取知识库列表
+        fetch('/api/knowledge/datasets')
             .then(res => res.json())
-            .then(data => setVariableTypes(data.types || []))
+            .then((data: any[]) => {
+                setKnowledgeBases(data.map((kb: any) => ({ id: kb.id, name: kb.name })));
+            })
             .catch(() => {
-                setVariableTypes([
-                    { type: 'string', label: '文本 (String)', color: '#3b82f6' },
-                    { type: 'number', label: '数字 (Number)', color: '#22c55e' },
-                    { type: 'object', label: '对象 (Object)', color: '#f97316' },
-                    { type: 'array[string]', label: '文本列表', color: '#06b6d4' },
-                    { type: 'file', label: '单文件 (File)', color: '#ec4899' },
-                    { type: 'array[file]', label: '文件列表', color: '#ec4899' },
-                ]);
+                setKnowledgeBases([]);
             });
+
+        // 获取变量类型
+        setVariableTypes([
+            { type: 'string', label: '文本 (String)', color: '#3b82f6' },
+            { type: 'number', label: '数字 (Number)', color: '#22c55e' },
+            { type: 'object', label: '对象 (Object)', color: '#f97316' },
+            { type: 'array[string]', label: '文本列表', color: '#06b6d4' },
+            { type: 'file', label: '单文件 (File)', color: '#ec4899' },
+            { type: 'array[file]', label: '文件列表', color: '#ec4899' },
+        ]);
     }, []);
 
     // 获取节点类型对应的图标和颜色
@@ -94,6 +126,7 @@ export function WorkflowConfigPanel({
             code: { icon: Code, color: "bg-blue-600", label: "代码执行" },
             http: { icon: Globe, color: "bg-violet-500", label: "HTTP 请求" },
             variable: { icon: Variable, color: "bg-blue-500", label: "变量赋值" },
+            knowledge: { icon: BookOpen, color: "bg-emerald-500", label: "知识库检索" },
         };
         return meta[type || ""] || { icon: Box, color: "bg-gray-500", label: type || "Unknown" };
     };
@@ -330,6 +363,27 @@ export function WorkflowConfigPanel({
                                         </div>
                                     </div>
 
+                                    {/* Top P */}
+                                    <div className="px-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] text-foreground-600">Top P</span>
+                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.topP ?? 1.0}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="1"
+                                            step="0.05"
+                                            value={selectedNode.data?.topP ?? 1.0}
+                                            onChange={(e) => updateSelectedNode({ topP: parseFloat(e.target.value) })}
+                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
+                                            <span>0</span>
+                                            <span>1</span>
+                                        </div>
+                                    </div>
+
                                     {/* Max Tokens */}
                                     <div className="px-1">
                                         <div className="flex items-center justify-between mb-1">
@@ -348,6 +402,48 @@ export function WorkflowConfigPanel({
                                         <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
                                             <span>256</span>
                                             <span>8192</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Presence Penalty */}
+                                    <div className="px-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] text-foreground-600">Presence Penalty</span>
+                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.presencePenalty ?? 0}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="2"
+                                            step="0.1"
+                                            value={selectedNode.data?.presencePenalty ?? 0}
+                                            onChange={(e) => updateSelectedNode({ presencePenalty: parseFloat(e.target.value) })}
+                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
+                                            <span>0</span>
+                                            <span>2</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Frequency Penalty */}
+                                    <div className="px-1">
+                                        <div className="flex items-center justify-between mb-1">
+                                            <span className="text-[10px] text-foreground-600">Frequency Penalty</span>
+                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.frequencyPenalty ?? 0}</span>
+                                        </div>
+                                        <input
+                                            type="range"
+                                            min="0"
+                                            max="2"
+                                            step="0.1"
+                                            value={selectedNode.data?.frequencyPenalty ?? 0}
+                                            onChange={(e) => updateSelectedNode({ frequencyPenalty: parseFloat(e.target.value) })}
+                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+                                        />
+                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
+                                            <span>0</span>
+                                            <span>2</span>
                                         </div>
                                     </div>
                                 </div>
@@ -835,17 +931,24 @@ export function WorkflowConfigPanel({
                                 </div>
                                 <Dropdown>
                                     <DropdownTrigger>
-                                        <Button variant="bordered" size="sm" className="justify-between h-9 text-[11px]">
-                                            {selectedNode.data?.knowledgeBase || "选择知识库..."}
+                                        <Button variant="bordered" size="sm" className="justify-between h-9 text-[11px] w-full">
+                                            {selectedNode.data?.knowledgeBaseName || "选择知识库..."}
+                                            <span className="text-foreground-400">▼</span>
                                         </Button>
                                     </DropdownTrigger>
                                     <DropdownMenu
                                         aria-label="选择知识库"
-                                        onAction={(key) => updateSelectedNode({ knowledgeBase: key as string })}
+                                        onAction={(key) => {
+                                            const kb = knowledgeBases.find(k => k.id === Number(key));
+                                            updateSelectedNode({
+                                                knowledgeBaseId: Number(key),
+                                                knowledgeBaseName: kb?.name || String(key)
+                                            });
+                                        }}
                                     >
-                                        <DropdownItem key="kb-1">产品文档</DropdownItem>
-                                        <DropdownItem key="kb-2">技术手册</DropdownItem>
-                                        <DropdownItem key="kb-3">FAQ 知识库</DropdownItem>
+                                        {knowledgeBases.map((kb) => (
+                                            <DropdownItem key={kb.id}>{kb.name}</DropdownItem>
+                                        ))}
                                     </DropdownMenu>
                                 </Dropdown>
                                 <Input
