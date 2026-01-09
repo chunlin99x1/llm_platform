@@ -108,7 +108,7 @@ export function WorkflowConfigPanel({
     return (
         <div className="w-80 border-l border-divider bg-content1 flex flex-col h-full">
             {/* Header */}
-            <div className={`h-12 border-b border-divider flex items-center px-4 gap-2 ${meta.color} bg-opacity-10`}>
+            <div className="h-12 border-b border-divider flex items-center px-4 gap-2">
                 <div className={`w-6 h-6 rounded flex items-center justify-center ${meta.color} text-white shadow-sm`}>
                     <Icon size={14} />
                 </div>
