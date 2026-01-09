@@ -48,8 +48,8 @@ async def _invoke_tool(tool_obj: Any, args: Dict[str, Any]) -> str:
 
 
 async def _retrieve_from_knowledge_bases(
-    kb_ids: List[int], 
-    query: str, 
+    kb_ids: List[int],
+    query: str,
     top_k: int = 3,
     retrieval_mode: str = "hybrid",
     score_threshold: float = 0.0,
@@ -180,7 +180,7 @@ async def agent_stream(
 
             if user_query:
                 rag_context = await _retrieve_from_knowledge_bases(
-                    knowledge_base_ids, 
+                    knowledge_base_ids,
                     user_query,
                     top_k=kb_top_k,
                     retrieval_mode=kb_retrieval_mode,
@@ -202,11 +202,11 @@ async def agent_stream(
 请根据以上参考资料和你的知识来回答用户的问题。如果参考资料中没有相关信息，请基于你的知识回答。"""
         elif knowledge_base_ids and len(knowledge_base_ids) > 0 and not kb_fallback_to_model:
             # 启用了知识库但没有检索到内容，且禁止使用模型知识回退
-            enhanced_prompt = f"""{enhanced_prompt}
-
-## 重要提示
-你被配置为仅使用知识库中的信息来回答问题。但是，针对用户的问题，在知识库中没有找到相关信息。
-请礼貌地告诉用户你无法回答这个问题，因为在可用的知识库中找不到相关信息。不要使用你自己的知识来编造或猜测答案。"""
+            # 直接返回固定消息，不调用 LLM（避免模型不遵守指示）
+            no_result_msg = "抱歉，我在知识库中没有找到与您问题相关的信息。由于系统配置为仅使用知识库内容回答，我无法为您提供答案。请尝试换一种方式提问，或联系管理员补充相关知识。"
+            print(f"[RAG DEBUG] Returning no_result_msg")
+            yield {"type": "text", "content": no_result_msg}
+            return
 
         print(enhanced_prompt)
         local_tools = resolve_tools(enabled_tools)
