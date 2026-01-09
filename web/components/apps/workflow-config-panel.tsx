@@ -68,24 +68,21 @@ export function WorkflowConfigPanel({
     useEffect(() => {
         const fetchModels = async () => {
             try {
-                // Try fetching from new endpoint first
-                let res = await fetch(`${API_BASE_URL}/api/models`);
-                if (!res.ok) {
-                    // Fallback to settings endpoint if main api not ready
-                    res = await fetch(`${API_BASE_URL}/settings/models`);
-                }
+                // Fetch from settings/model-providers to get dynamic models with config schemas
+                const res = await fetch(`${API_BASE_URL}/settings/model-providers`);
                 if (res.ok) {
-                    const data = await res.json();
-                    setModels(data);
+                    const providers = await res.json();
+                    // Flatten key models from all providers
+                    const allModels: ProviderModel[] = providers.flatMap((p: any) =>
+                        p.models.map((m: any) => ({
+                            ...m,
+                            provider: p.name // Ensure provider name is attached
+                        }))
+                    );
+                    setModels(allModels);
                 }
             } catch (err) {
                 console.error("Failed to fetch models:", err);
-                // Fallback models for demo
-                setModels([
-                    { id: "gpt-4o", name: "GPT-4o", provider: "OpenAI" },
-                    { id: "gpt-3.5-turbo", name: "GPT-3.5 Turbo", provider: "OpenAI" },
-                    { id: "claude-3-opus", name: "Claude 3 Opus", provider: "Anthropic" }
-                ]);
             }
         };
 
