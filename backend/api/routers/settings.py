@@ -276,6 +276,33 @@ async def create_provider_model(provider_id: int, payload: ProviderModelCreate):
     )
 
 
+@router.put("/models/{model_id}", response_model=ProviderModelResponse)
+async def update_provider_model(model_id: int, payload: ProviderModelUpdate):
+    """更新模型配置"""
+    model = await ProviderModel.get_or_none(id=model_id)
+    if not model:
+        raise HTTPException(status_code=404, detail="Model not found")
+    
+    if payload.description is not None:
+        model.description = payload.description
+    if payload.enabled is not None:
+        model.enabled = payload.enabled
+    if payload.config is not None:
+        model.config = payload.config
+        
+    await model.save()
+    
+    return ProviderModelResponse(
+        id=model.id,
+        name=model.name,
+        description=model.description,
+        model_type=model.model_type,
+        enabled=model.enabled,
+        config=model.config,
+        created_at=model.created_at
+    )
+
+
 @router.delete("/models/{model_id}")
 async def delete_provider_model(model_id: int):
     """删除模型"""

@@ -64,7 +64,7 @@ export function WorkflowConfigPanel({
     selectedId,
 }: WorkflowConfigPanelProps) {
     // 模型列表状态
-    const [models, setModels] = useState<{ id: string; name: string; provider: string }[]>([]);
+    const [models, setModels] = useState<{ id: string; name: string; provider: string; config?: any }[]>([]);
     // 知识库列表状态
     const [knowledgeBases, setKnowledgeBases] = useState<{ id: number; name: string }[]>([]);
     // 变量类型状态
@@ -86,7 +86,7 @@ export function WorkflowConfigPanel({
         fetch('/api/settings/model-providers')
             .then(res => res.json())
             .then((providers: any[]) => {
-                const loadedModels: { id: string; name: string; provider: string }[] = [];
+                const loadedModels: { id: string; name: string; provider: string; config?: any }[] = [];
                 providers.forEach((p: any) => {
                     if (p.models) {
                         p.models.forEach((m: any) => {
@@ -94,7 +94,8 @@ export function WorkflowConfigPanel({
                                 loadedModels.push({
                                     id: m.name,
                                     name: m.name,
-                                    provider: p.name
+                                    provider: p.name,
+                                    config: m.config || {}
                                 });
                             }
                         });
@@ -382,6 +383,7 @@ export function WorkflowConfigPanel({
                                         onOpenChange={onModelParamsModalOpenChange}
                                         data={selectedNode.data}
                                         onChange={updateSelectedNode}
+                                        modelConfig={models.find(m => m.id === selectedNode.data?.model)?.config}
                                     />
                                 </div>
 
@@ -1171,13 +1173,59 @@ function ModelParamsModal({
     isOpen,
     onOpenChange,
     data,
-    onChange
+    onChange,
+    modelConfig
 }: {
     isOpen: boolean;
     onOpenChange: () => void;
     data: any;
     onChange: (patch: Record<string, any>) => void;
+    modelConfig?: any;
 }) {
+    // Default parameters if no config provided
+    const defaultParams = [
+        { label: "Temperature", key: "temperature", min: 0, max: 2, step: 0.1, desc: ["精确", "创意"], default: 0.7 },
+        { label: "Top P", key: "topP", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
+        { label: "Presence Penalty", key: "presencePenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+        { label: "Frequency Penalty", key: "frequencyPenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+        { label: "Max Tokens", key: "maxTokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
+    ];
+
+    // Generate parameters list from modelConfig if available
+
+    const getParams = () => {
+        // Always start with default parameters
+        const merged = [...defaultParams];
+
+        if (!modelConfig || Object.keys(modelConfig).length === 0) return merged;
+
+        // Merge or add parameters from config
+        Object.entries(modelConfig).forEach(([key, conf]: [string, any]) => {
+            const index = merged.findIndex(p => p.key === key);
+
+            if (index !== -1) {
+                // Override existing parameter
+                merged[index] = { ...merged[index], ...conf };
+            } else {
+                // Add new parameter with smart defaults
+                merged.push({
+                    label: conf.label || key.charAt(0).toUpperCase() + key.slice(1),
+                    key: key,
+                    min: conf.min ?? 0,
+                    max: conf.max ?? 1,
+                    step: conf.step ?? (Number.isInteger(conf.min) && Number.isInteger(conf.max) ? 1 : 0.1),
+                    desc: conf.desc || [String(conf.min ?? 0), String(conf.max ?? 1)],
+                    default: conf.default ?? conf.min ?? 0,
+                    isInt: conf.isInt || (Number.isInteger(conf.min) && Number.isInteger(conf.max))
+                });
+            }
+        });
+
+        return merged;
+    };
+
+    const params = getParams();
+
     return (
         <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="sm">
             <ModalContent>
@@ -1186,13 +1234,7 @@ function ModelParamsModal({
                         <ModalHeader className="flex flex-col gap-1 text-[13px]">模型参数配置</ModalHeader>
                         <ModalBody className="pb-6">
                             <div className="flex flex-col gap-5">
-                                {[
-                                    { label: "Temperature", key: "temperature", min: 0, max: 2, step: 0.1, desc: ["精确", "创意"], default: 0.7 },
-                                    { label: "Top P", key: "topP", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
-                                    { label: "Presence Penalty", key: "presencePenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
-                                    { label: "Frequency Penalty", key: "frequencyPenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
-                                    { label: "Max Tokens", key: "maxTokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
-                                ].map((param) => (
+                                {params.map((param) => (
                                     <div key={param.key} className="group">
                                         <div className="flex items-center justify-between mb-2 h-6">
                                             <span className="text-[12px] font-medium text-foreground-700">{param.label}</span>

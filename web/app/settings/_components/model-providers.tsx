@@ -23,7 +23,8 @@ import {
     TableRow,
     TableCell,
     Link,
-    Tooltip
+    Tooltip,
+    Textarea
 } from "@heroui/react";
 import { Plus, Trash2, Edit2, Server, Key, Box, Settings } from "lucide-react";
 import { toast } from "sonner";
@@ -89,7 +90,9 @@ export default function ModelProviderSettings() {
         name: "",
         description: "",
         model_type: "llm",
+        config: "", // JSON string
     });
+    const [editingModel, setEditingModel] = useState<ProviderModel | null>(null);
 
     const fetchProviders = async () => {
         try {
@@ -181,12 +184,32 @@ export default function ModelProviderSettings() {
     const handleModelSubmit = async (onClose: () => void) => {
         if (!selectedProvider) return;
         try {
-            const url = `${process.env.NEXT_PUBLIC_API_URL}/settings/model-providers/${selectedProvider.id}/models`;
+            // Validate JSON
+            let configData = {};
+            if (modelForm.config) {
+                try {
+                    configData = JSON.parse(modelForm.config);
+                } catch (e) {
+                    toast.error("无效的 JSON 配置格式");
+                    return;
+                }
+            }
+
+            const url = editingModel
+                ? `${process.env.NEXT_PUBLIC_API_URL}/settings/models/${editingModel.id}`
+                : `${process.env.NEXT_PUBLIC_API_URL}/settings/model-providers/${selectedProvider.id}/models`;
+
+            const method = editingModel ? "PUT" : "POST";
 
             const res = await fetch(url, {
-                method: "POST",
+                method,
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(modelForm),
+                body: JSON.stringify({
+                    name: modelForm.name,
+                    description: modelForm.description,
+                    model_type: modelForm.model_type,
+                    config: configData
+                }),
             });
 
             if (!res.ok) {
@@ -194,7 +217,7 @@ export default function ModelProviderSettings() {
                 throw new Error(err.detail || "Operation failed");
             }
 
-            toast.success("Model added");
+            toast.success(editingModel ? "Model updated" : "Model added");
             fetchProviders();
             onClose();
         } catch (error: any) {
@@ -218,10 +241,24 @@ export default function ModelProviderSettings() {
 
     const openModelCreate = (provider: ModelProvider) => {
         setSelectedProvider(provider);
+        setEditingModel(null);
         setModelForm({
             name: "",
             description: "",
             model_type: "llm",
+            config: "{}",
+        });
+        onModelOpen();
+    };
+
+    const openModelEdit = (provider: ModelProvider, model: ProviderModel) => {
+        setSelectedProvider(provider);
+        setEditingModel(model);
+        setModelForm({
+            name: model.name,
+            description: model.description || "",
+            model_type: model.model_type,
+            config: JSON.stringify(model.config || {}, null, 2),
         });
         onModelOpen();
     };
@@ -301,12 +338,20 @@ export default function ModelProviderSettings() {
                                             <div key={model.id} className="group relative border border-default-200 rounded-lg p-3 hover:border-primary/50 transition-colors bg-content2/20">
                                                 <div className="flex justify-between items-start mb-2">
                                                     <Chip size="sm" variant="flat" color="primary" className="capitalize text-xs h-6">{model.model_type}</Chip>
-                                                    <button
-                                                        className="opacity-0 group-hover:opacity-100 transition-opacity text-danger hover:bg-danger/10 p-1 rounded"
-                                                        onClick={() => handleModelDelete(model.id)}
-                                                    >
-                                                        <Trash2 size={14} />
-                                                    </button>
+                                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <button
+                                                            className="text-default-500 hover:bg-default-100 p-1 rounded"
+                                                            onClick={() => openModelEdit(provider, model)}
+                                                        >
+                                                            <Edit2 size={14} />
+                                                        </button>
+                                                        <button
+                                                            className="text-danger hover:bg-danger/10 p-1 rounded"
+                                                            onClick={() => handleModelDelete(model.id)}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </div>
                                                 </div>
                                                 <div className="font-medium text-sm truncate" title={model.name}>
                                                     {model.name}
@@ -392,7 +437,7 @@ export default function ModelProviderSettings() {
                             <ModalHeader>
                                 <div className="flex items-center gap-2">
                                     <Plus size={20} />
-                                    添加模型
+                                    {editingModel ? "编辑模型" : "添加模型"}
                                 </div>
                             </ModalHeader>
                             <ModalBody>
@@ -407,6 +452,7 @@ export default function ModelProviderSettings() {
                                     placeholder="例如: gpt-4o, text-embedding-3-small"
                                     value={modelForm.name}
                                     onValueChange={(v) => setModelForm({ ...modelForm, name: v })}
+                                    isDisabled={!!editingModel}
                                 />
 
                                 <Input
@@ -436,17 +482,32 @@ export default function ModelProviderSettings() {
                                         ))}
                                     </div>
                                 </div>
+
+                                <div className="flex flex-col gap-2">
+                                    <label className="text-sm text-default-600">模型参数配置 (JSON Schema)</label>
+                                    <Textarea
+                                        variant="bordered"
+                                        labelPlacement="outside"
+                                        placeholder='{ "temperature": { "min": 0, "max": 1, "default": 0.7 } }'
+                                        value={modelForm.config}
+                                        onValueChange={(v) => setModelForm({ ...modelForm, config: v })}
+                                        classNames={{ input: "font-mono text-xs", inputWrapper: "min-h-[100px]" }}
+                                    />
+                                    <div className="text-xs text-default-400">
+                                        定义该模型的参数规则 (JSON)，用于前端动态渲染。
+                                    </div>
+                                </div>
                             </ModalBody>
                             <ModalFooter>
                                 <Button variant="light" onPress={onClose}>取消</Button>
                                 <Button color="primary" onPress={() => handleModelSubmit(onClose)}>
-                                    添加
+                                    {editingModel ? "保存" : "添加"}
                                 </Button>
                             </ModalFooter>
                         </>
                     )}
                 </ModalContent>
             </Modal>
-        </div>
+        </div >
     );
 }
