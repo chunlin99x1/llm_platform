@@ -63,6 +63,11 @@ async def mcp_connection_manager(mcp_servers: List[Dict[str, Any]]) -> AsyncGene
                 # load_mcp_tools 需要传入 session 对象
                 tools = await load_mcp_tools(session)
 
+                # 5. 为每个工具添加 MCP 服务器名称元数据
+                for tool in tools:
+                    # 在工具对象上存储 MCP 服务器名称
+                    tool.mcp_server_name = name
+                
                 all_tools.extend(tools)
                 logger.info(f"MCP: 已连接至 {name}, 加载工具数: {len(tools)}")
 
@@ -76,3 +81,4 @@ async def mcp_connection_manager(mcp_servers: List[Dict[str, Any]]) -> AsyncGene
         # 连接会在退出此上下文时自动关闭
         print(all_tools)
         yield all_tools
+

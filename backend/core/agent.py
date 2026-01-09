@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
-from core.llm import chat_llm, create_llm_instance
+from core.llm import create_llm_instance
 from core.tools import resolve_tools
 from core.mcp import mcp_connection_manager
 
@@ -60,16 +60,17 @@ async def agent_stream(
     流式生成器，输出事件数据包。
     """
     try:
-        if llm_config:
-            # llm_config should look like: {"provider": "...", "model": "...", "parameters": {...}}
-            llm = await create_llm_instance(
-                provider=llm_config.get("provider", "openai"),
-                model=llm_config.get("model", "gpt-4o"),
-                parameters=llm_config.get("parameters", {})
-            )
-        else:
-            llm = chat_llm()
-            
+        if not llm_config:
+            raise ValueError("缺少 llm_config 参数。请在请求中提供模型配置。")
+        
+        # llm_config should look like: {"provider": "...", "model": "...", "parameters": {...}}
+        llm = await create_llm_instance(
+            provider=llm_config.get("provider"),
+            model=llm_config.get("model"),
+            parameters=llm_config.get("parameters", {})
+        )
+        if not llm_config.get("provider") or not llm_config.get("model"):
+            raise ValueError("llm_config 缺少 provider 或 model 字段。")
         local_tools = resolve_tools(enabled_tools)
 
         # 使用上下文管理器加载 MCP 工具
@@ -163,18 +164,23 @@ async def agent_stream(
                     tool_args = tc.get("args", {})
                     tool_id = tc.get("id", "")
 
-                    yield {
-                        "type": "trace",
-                        "id": tool_id,
-                        "name": tool_name,
-                        "args": tool_args
-                    }
-
+                    # 先查找工具对象
                     tool_obj = None
                     for t in tools:
                         if t.name == tool_name:
                             tool_obj = t
                             break
+                    
+                    # 获取 MCP 服务器名称（如果是 MCP 工具）
+                    mcp_server_name = getattr(tool_obj, 'mcp_server_name', None) if tool_obj else None
+                    
+                    yield {
+                        "type": "trace",
+                        "id": tool_id,
+                        "name": tool_name,
+                        "args": tool_args,
+                        "mcp_server": mcp_server_name  # 如果是 MCP 工具则返回服务器名称，否则为 None
+                    }
 
                     if tool_obj is None:
                         result = f"工具 {tool_name} 未找到"

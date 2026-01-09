@@ -24,10 +24,10 @@ export function ModelParamsModal({
     // Default parameters if no config provided
     const defaultParams = [
         { label: "Temperature", key: "temperature", min: 0, max: 2, step: 0.1, desc: ["精确", "创意"], default: 0.7 },
-        { label: "Top P", key: "topP", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
-        { label: "Presence Penalty", key: "presencePenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
-        { label: "Frequency Penalty", key: "frequencyPenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
-        { label: "Max Tokens", key: "maxTokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
+        { label: "Top P", key: "top_p", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
+        { label: "Presence Penalty", key: "presence_penalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+        { label: "Frequency Penalty", key: "frequency_penalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+        { label: "Max Tokens", key: "max_tokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
     ];
 
     // Generate parameters list from modelConfig if available

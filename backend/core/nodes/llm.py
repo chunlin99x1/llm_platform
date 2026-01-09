@@ -12,10 +12,22 @@ async def execute_llm_node(
     """
     执行 LLM 节点：调用大语言模型。
     """
-    from core.llm import chat_llm
+    from core.llm import create_llm_instance
     from langchain_core.messages import HumanMessage
 
-    llm = chat_llm()
+    # 从节点配置获取模型信息
+    model_config = node_data.get("modelConfig", {})
+    provider = model_config.get("provider")
+    model = model_config.get("model")
+    
+    if not provider or not model:
+        raise ValueError(f"LLM 节点 '{node_id}' 缺少模型配置。请在节点中配置 provider 和 model。")
+    
+    llm = await create_llm_instance(
+        provider=provider,
+        model=model,
+        parameters=model_config.get("parameters", {})
+    )
     prompt_template = node_data.get("prompt", "")
 
     # 变量替换

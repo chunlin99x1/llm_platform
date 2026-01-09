@@ -5,7 +5,7 @@ import json
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
 from langgraph.graph import END, START, StateGraph
 
-from .llm import chat_llm
+from .llm import create_llm_instance
 
 
 class WorkflowState(TypedDict):
@@ -37,7 +37,19 @@ class WorkflowExecutor:
                 return {"temp_data": {"start_node_id": node_id}}
 
             elif node_type == "llm":
-                llm = chat_llm()
+                # 从节点配置中获取模型信息
+                model_config = node_data.get("modelConfig", {})
+                provider = model_config.get("provider")
+                model = model_config.get("model")
+                
+                if not provider or not model:
+                    raise ValueError(f"LLM 节点 '{node_id}' 缺少模型配置。请在节点中配置 provider 和 model。")
+                
+                llm = await create_llm_instance(
+                    provider=provider,
+                    model=model,
+                    parameters=model_config.get("parameters", {})
+                )
                 prompt_template = node_data.get("prompt", "")
                 
                 # 简单的变量替换，支持 {{input}} 语法

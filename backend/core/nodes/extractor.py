@@ -16,7 +16,7 @@ async def execute_extractor_node(
     """
     执行参数提取节点：使用 LLM 提取结构化数据。
     """
-    from core.llm import chat_llm
+    from core.llm import create_llm_instance
     from langchain_core.messages import HumanMessage, SystemMessage
     
     # 获取配置
@@ -43,7 +43,19 @@ async def execute_extractor_node(
     
     schema_desc += "\n请只返回 JSON 对象，不要包含其他文字。"
     
-    llm = chat_llm()
+    # 从节点配置获取模型信息
+    model_config = node_data.get("modelConfig", {})
+    provider = model_config.get("provider")
+    model = model_config.get("model")
+    
+    if not provider or not model:
+        raise ValueError(f"参数提取节点 '{node_id}' 缺少模型配置。请在节点中配置 provider 和 model。")
+    
+    llm = await create_llm_instance(
+        provider=provider,
+        model=model,
+        parameters=model_config.get("parameters", {})
+    )
     messages = [
         SystemMessage(content=schema_desc),
         HumanMessage(content=f"文本内容：\n{input_text}")
