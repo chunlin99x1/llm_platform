@@ -87,6 +87,14 @@ export interface KnowledgeBase {
   created_at: string;
 }
 
+export interface KnowledgeSettings {
+  top_k?: number;  // 返回结果数量，默认 3
+  retrieval_mode?: "semantic" | "keyword" | "hybrid";  // 检索方式，默认 hybrid
+  score_threshold?: number;  // 分数阈值，默认 0.0
+  rerank_enabled?: boolean;  // 是否启用重排序，默认 false
+  fallback_to_model?: boolean;  // 没有命中时是否使用模型知识，默认 true
+}
+
 export type AgentChatRequest = {
   session_id?: string;
   input: string;
@@ -95,6 +103,7 @@ export type AgentChatRequest = {
   mcp_servers?: MCPServer[];
   llm_config?: Record<string, any>;
   knowledge_base_ids?: number[];  // 关联的知识库 ID 列表
+  knowledge_settings?: KnowledgeSettings;  // 知识库检索设置
   inputs?: Record<string, unknown>;
 };
 

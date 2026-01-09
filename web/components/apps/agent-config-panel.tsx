@@ -58,7 +58,8 @@ import {
     ToolCategory,
     MCPServer,
     ProviderModel,
-    KnowledgeBase
+    KnowledgeBase,
+    KnowledgeSettings
 } from "@/lib/types";
 
 interface AgentConfigPanelProps {
@@ -77,6 +78,8 @@ interface AgentConfigPanelProps {
     knowledgeBases: KnowledgeBase[];
     selectedKBs: number[];
     setSelectedKBs: (ids: number[] | ((prev: number[]) => number[])) => void;
+    knowledgeSettings: KnowledgeSettings;
+    setKnowledgeSettings: (settings: KnowledgeSettings | ((prev: KnowledgeSettings) => KnowledgeSettings)) => void;
 }
 
 // 工具图标映射
@@ -110,6 +113,8 @@ export function AgentConfigPanel({
     knowledgeBases,
     selectedKBs,
     setSelectedKBs,
+    knowledgeSettings,
+    setKnowledgeSettings,
 }: AgentConfigPanelProps) {
     const [hoveredTool, setHoveredTool] = useState<string | null>(null);
 
@@ -695,8 +700,8 @@ export function AgentConfigPanel({
                                                 <div
                                                     key={kb.id}
                                                     className={`group relative flex items-center gap-3 p-3 rounded-xl transition-all duration-200 cursor-pointer border ${isSelected
-                                                            ? "bg-emerald-500/5 border-emerald-500/30"
-                                                            : "bg-content2/30 border-transparent hover:border-emerald-500/20 hover:bg-content2/50"
+                                                        ? "bg-emerald-500/5 border-emerald-500/30"
+                                                        : "bg-content2/30 border-transparent hover:border-emerald-500/20 hover:bg-content2/50"
                                                         }`}
                                                     onClick={() => {
                                                         if (isSelected) {
@@ -739,6 +744,83 @@ export function AgentConfigPanel({
                                                 </div>
                                             );
                                         })}
+                                    </div>
+                                )}
+
+                                {/* 高级设置 */}
+                                {selectedKBs.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-divider">
+                                        <div className="flex items-center justify-between mb-3 px-1">
+                                            <span className="text-[10px] font-bold text-foreground/40 uppercase tracking-widest">检索设置</span>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {/* Top K */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] text-foreground/70">返回结果数量</span>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    min={1}
+                                                    max={10}
+                                                    value={String(knowledgeSettings.top_k || 3)}
+                                                    onChange={(e) => setKnowledgeSettings({ ...knowledgeSettings, top_k: Number(e.target.value) })}
+                                                    className="w-16"
+                                                    classNames={{ input: "text-center text-[11px]", inputWrapper: "h-7 min-h-7" }}
+                                                />
+                                            </div>
+
+                                            {/* 检索方式 */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] text-foreground/70">检索方式</span>
+                                                <Select
+                                                    size="sm"
+                                                    selectedKeys={[knowledgeSettings.retrieval_mode || "hybrid"]}
+                                                    onChange={(e) => setKnowledgeSettings({ ...knowledgeSettings, retrieval_mode: e.target.value as any })}
+                                                    className="w-24"
+                                                    classNames={{ trigger: "h-7 min-h-7", value: "text-[11px]" }}
+                                                >
+                                                    <SelectItem key="hybrid">混合</SelectItem>
+                                                    <SelectItem key="semantic">语义</SelectItem>
+                                                    <SelectItem key="keyword">关键词</SelectItem>
+                                                </Select>
+                                            </div>
+
+                                            {/* 分数阈值 */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] text-foreground/70">分数阈值</span>
+                                                <Input
+                                                    type="number"
+                                                    size="sm"
+                                                    min={0}
+                                                    max={1}
+                                                    step={0.1}
+                                                    value={String(knowledgeSettings.score_threshold || 0)}
+                                                    onChange={(e) => setKnowledgeSettings({ ...knowledgeSettings, score_threshold: Number(e.target.value) })}
+                                                    className="w-16"
+                                                    classNames={{ input: "text-center text-[11px]", inputWrapper: "h-7 min-h-7" }}
+                                                />
+                                            </div>
+
+                                            {/* 重排序 */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] text-foreground/70">启用重排序</span>
+                                                <Switch
+                                                    size="sm"
+                                                    isSelected={knowledgeSettings.rerank_enabled || false}
+                                                    onValueChange={(val) => setKnowledgeSettings({ ...knowledgeSettings, rerank_enabled: val })}
+                                                />
+                                            </div>
+
+                                            {/* 回退到模型知识 */}
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[11px] text-foreground/70">无命中时使用模型知识</span>
+                                                <Switch
+                                                    size="sm"
+                                                    isSelected={knowledgeSettings.fallback_to_model !== false}
+                                                    onValueChange={(val) => setKnowledgeSettings({ ...knowledgeSettings, fallback_to_model: val })}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
                                 )}
                             </div>

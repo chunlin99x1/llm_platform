@@ -50,6 +50,15 @@ class AgentSessionResponse(BaseModel):
     session_id: str
 
 
+class KnowledgeSettings(BaseModel):
+    """知识库检索设置"""
+    top_k: int = 3
+    retrieval_mode: str = "hybrid"  # semantic, keyword, hybrid
+    score_threshold: float = 0.0
+    rerank_enabled: bool = False
+    fallback_to_model: bool = True
+
+
 class AgentChatRequest(BaseModel):
     session_id: Optional[str] = None
     input: str
@@ -58,6 +67,7 @@ class AgentChatRequest(BaseModel):
     llm_config: Optional[Dict[str, Any]] = None
     mcp_servers: Optional[List[Dict[str, Any]]] = None
     knowledge_base_ids: Optional[List[int]] = None  # 关联的知识库 ID 列表
+    knowledge_settings: Optional[KnowledgeSettings] = None  # 知识库检索设置
     inputs: Dict[str, Any] = Field(default_factory=dict)
 
 

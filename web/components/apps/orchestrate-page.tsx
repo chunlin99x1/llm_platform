@@ -31,7 +31,7 @@ import {
 import "reactflow/dist/style.css";
 
 import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChatStream, listTools } from "@/lib/api";
-import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer, ProviderModel, KnowledgeBase } from "@/lib/types";
+import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer, ProviderModel, KnowledgeBase, KnowledgeSettings } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 // Import extracted components
@@ -65,6 +65,13 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [variables, setVariables] = useState<PromptVariable[]>([]);
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [selectedKBs, setSelectedKBs] = useState<number[]>([]);  // 选中的知识库 ID
+  const [knowledgeSettings, setKnowledgeSettings] = useState<KnowledgeSettings>({
+    top_k: 3,
+    retrieval_mode: "hybrid",
+    score_threshold: 0.0,
+    rerank_enabled: false,
+    fallback_to_model: true
+  });
   const [modelConfig, setModelConfig] = useState<Record<string, any>>({
     provider: "openai",
     model: "gpt-4o",
@@ -128,6 +135,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           setVariables((g.prompt_variables as PromptVariable[]) || []);
           setMcpServers((g.mcp_servers as MCPServer[]) || []);
           setSelectedKBs((g.knowledge_base_ids as number[]) || []);  // 加载选中的知识库
+          if (g.knowledge_settings) {
+            setKnowledgeSettings({ ...knowledgeSettings, ...g.knowledge_settings });
+          }
           if (g.model_config) {
             setModelConfig(g.model_config);
           }
@@ -246,7 +256,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             prompt_variables: variables,
             mcp_servers: mcpServers,
             model_config: modelConfig,
-            knowledge_base_ids: selectedKBs
+            knowledge_base_ids: selectedKBs,
+            knowledge_settings: knowledgeSettings
           }
           : { nodes, edges };
       await updateWorkflow(appId, { graph: graphPayload });
@@ -255,7 +266,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     } finally {
       setSaving(false);
     }
-  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, modelConfig, selectedKBs, nodes, edges]);
+  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, modelConfig, selectedKBs, knowledgeSettings, nodes, edges]);
 
   // 注册快捷键
   useWorkflowShortcuts({
@@ -291,6 +302,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             mcp_servers: mcpServers,
             llm_config: modelConfig,
             knowledge_base_ids: selectedKBs,
+            knowledge_settings: knowledgeSettings,
             inputs: cleanInputs,
           },
           (event) => {
@@ -478,6 +490,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 knowledgeBases={knowledgeBases}
                 selectedKBs={selectedKBs}
                 setSelectedKBs={setSelectedKBs}
+                knowledgeSettings={knowledgeSettings}
+                setKnowledgeSettings={setKnowledgeSettings}
               />
               <AgentPreview
                 runOutput={runOutput}

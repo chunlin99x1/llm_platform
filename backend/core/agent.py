@@ -47,7 +47,14 @@ async def _invoke_tool(tool_obj: Any, args: Dict[str, Any]) -> str:
             return f"工具 '{tool_name}' 执行失败: {error_msg}\nDebug Trace: {error_trace}"
 
 
-async def _retrieve_from_knowledge_bases(kb_ids: List[int], query: str, top_k: int = 3) -> str:
+async def _retrieve_from_knowledge_bases(
+    kb_ids: List[int], 
+    query: str, 
+    top_k: int = 3,
+    retrieval_mode: str = "hybrid",
+    score_threshold: float = 0.0,
+    rerank_enabled: bool = False
+) -> str:
     """
     从多个知识库中检索相关内容。
 
@@ -55,6 +62,9 @@ async def _retrieve_from_knowledge_bases(kb_ids: List[int], query: str, top_k: i
         kb_ids: 知识库 ID 列表
         query: 用户查询
         top_k: 每个知识库返回的最大结果数
+        retrieval_mode: 检索方式 (semantic/keyword/hybrid)
+        score_threshold: 分数阈值
+        rerank_enabled: 是否启用重排序
 
     Returns:
         格式化的检索结果文本
@@ -92,8 +102,10 @@ async def _retrieve_from_knowledge_bases(kb_ids: List[int], query: str, top_k: i
                 weaviate_client=client,
                 collection_name=f"kb_{kb_id}",
                 embedding_service=embedding_svc,
+                mode=retrieval_mode,
                 top_k=top_k,
-                alpha=0.5
+                alpha=0.5,
+                score_threshold=score_threshold
             )
 
             # 检索
@@ -130,6 +142,7 @@ async def agent_stream(
     mcp_servers: Optional[List[Dict[str, Any]]] = None,
     llm_config: Optional[Dict[str, Any]] = None,
     knowledge_base_ids: Optional[List[int]] = None,
+    knowledge_settings: Optional[Dict[str, Any]] = None,
     max_iters: int = 8,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
@@ -148,6 +161,13 @@ async def agent_stream(
         if not llm_config.get("provider") or not llm_config.get("model"):
             raise ValueError("llm_config 缺少 provider 或 model 字段。")
 
+        # 解析知识库设置（KnowledgeSettings 有默认值，直接使用属性访问）
+        kb_top_k = knowledge_settings.top_k if knowledge_settings else 3
+        kb_retrieval_mode = knowledge_settings.retrieval_mode if knowledge_settings else "hybrid"
+        kb_score_threshold = knowledge_settings.score_threshold if knowledge_settings else 0.0
+        kb_rerank_enabled = knowledge_settings.rerank_enabled if knowledge_settings else False
+        kb_fallback_to_model = knowledge_settings.fallback_to_model if knowledge_settings else True
+
         # 知识库检索：从用户输入获取相关内容
         rag_context = ""
         if knowledge_base_ids and len(knowledge_base_ids) > 0:
@@ -159,11 +179,19 @@ async def agent_stream(
                     break
 
             if user_query:
-                rag_context = await _retrieve_from_knowledge_bases(knowledge_base_ids, user_query)
+                rag_context = await _retrieve_from_knowledge_bases(
+                    knowledge_base_ids, 
+                    user_query,
+                    top_k=kb_top_k,
+                    retrieval_mode=kb_retrieval_mode,
+                    score_threshold=kb_score_threshold,
+                    rerank_enabled=kb_rerank_enabled
+                )
 
         # 构建增强的 system prompt
         enhanced_prompt = system_prompt or ""
         if rag_context:
+            # 有检索结果：让模型参考这些信息回答
             enhanced_prompt = f"""{enhanced_prompt}
 
 ## 相关参考资料
@@ -172,6 +200,13 @@ async def agent_stream(
 {rag_context}
 
 请根据以上参考资料和你的知识来回答用户的问题。如果参考资料中没有相关信息，请基于你的知识回答。"""
+        elif knowledge_base_ids and len(knowledge_base_ids) > 0 and not kb_fallback_to_model:
+            # 启用了知识库但没有检索到内容，且禁止使用模型知识回退
+            enhanced_prompt = f"""{enhanced_prompt}
+
+## 重要提示
+你被配置为仅使用知识库中的信息来回答问题。但是，针对用户的问题，在知识库中没有找到相关信息。
+请礼貌地告诉用户你无法回答这个问题，因为在可用的知识库中找不到相关信息。不要使用你自己的知识来编造或猜测答案。"""
 
         print(enhanced_prompt)
         local_tools = resolve_tools(enabled_tools)

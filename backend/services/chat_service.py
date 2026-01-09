@@ -102,7 +102,8 @@ class ChatService:
         inputs: Dict[str, Any] = None,
         mcp_servers: List[Dict[str, Any]] = None,
         model_config: Dict[str, Any] = None,
-        knowledge_base_ids: List[int] = None
+        knowledge_base_ids: List[int] = None,
+        knowledge_settings: Dict[str, Any] = None
     ) -> AsyncGenerator[Dict[str, Any], None]:
         """
         Process agent chat with streaming response.
@@ -142,7 +143,8 @@ class ChatService:
             enabled_tools=enabled_tools,
             mcp_servers=mcp_servers,
             llm_config=model_config,
-            knowledge_base_ids=knowledge_base_ids
+            knowledge_base_ids=knowledge_base_ids,
+            knowledge_settings=knowledge_settings
         ):
             if item["type"] == "message":
                 # Persist intermediate messages (AI thinking or tool execution)

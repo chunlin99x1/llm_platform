@@ -43,6 +43,7 @@ class KnowledgeBaseResponse(BaseModel):
     description: Optional[str]
     document_count: int
     created_at: datetime
+    rerank_model: Optional[str]
 
 
 class QueryRequest(BaseModel):
@@ -233,6 +234,7 @@ async def list_knowledge_bases():
             name=kb.name,
             description=kb.description,
             document_count=doc_count,
+            rerank_model=kb.rerank_model,
             created_at=kb.created_at
         ))
 
@@ -380,7 +382,7 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
 
     # 初始化服务
     weaviate =get_weaviate_client()
-    
+
     # 获取 Provider 凭证
     api_key = None
     api_base = None
@@ -401,7 +403,7 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
     mode_str = payload.retrieval_mode or kb.retrieval_mode
 
     collection_name = f"kb_{kb_id}"
-    
+
     retriever = WeaviateHybridRetriever(
         weaviate_client=weaviate,
         embedding_service=embedding,
@@ -422,12 +424,12 @@ async def query_knowledge_base(kb_id: int, payload: QueryRequest):
             # 获取 Rerank Provider 凭证 (假设 rerank 目前都在 dashscope, 或者根据模型名推断，或者添加 rerank_provider 字段)
             # 暂时假设 rerank model 也是从 ModelProvider 管理的，且目前只有 DashScope 支持 Rerank
             # 如果 kb.rerank_model 存在，则尝试获取其 provider（或者统一用 dashscope）
-            
+
             rerank_api_key = None
             if kb.rerank_model:
                 # 简单处理：假设 rerank model 都是 dashscope 提供的，除非有 rerank_provider 字段
                 # 由于 KnowledgeBase 暂时没加 rerank_provider，先尝试用 "dashscope" 获取凭证
-                provider_obj = await ModelProvider.get_or_none(name="dashscope") 
+                provider_obj = await ModelProvider.get_or_none(name="dashscope")
                 if provider_obj:
                     rerank_api_key = provider_obj.api_key
 
@@ -713,7 +715,7 @@ async def batch_operate_documents(kb_id: int, payload: BatchDocumentRequest):
         # 需要清理 Weaviate 向量
         weaviate = get_weaviate_client()
         collection_name = f"kb_{kb_id}"
-        
+
         for doc in docs:
             try:
                 # 1. 删除 Weaviate 向量 (Best Effort)
@@ -724,7 +726,7 @@ async def batch_operate_documents(kb_id: int, payload: BatchDocumentRequest):
 
                 # 2. 删除分段
                 await DocumentSegment.filter(document_id=doc.id).delete()
-                
+
                 # 3. 删除文档
                 await doc.delete()
                 count += 1
@@ -933,11 +935,11 @@ async def hit_testing(kb_id: int, payload: HitTestingRequest):
         provider=kb.embedding_provider,
         model=kb.embedding_model
     )
-    
+
     mode_str = payload.retrieval_mode or kb.retrieval_mode
 
     collection_name = f"kb_{kb_id}"
-    
+
     retriever = WeaviateHybridRetriever(
         weaviate_client=weaviate,
         embedding_service=embedding,
@@ -952,7 +954,7 @@ async def hit_testing(kb_id: int, payload: HitTestingRequest):
 
     try:
         results = await retriever.retrieve_raw(query=payload.query)
-        
+
         # DEBUG: 打印原始检索结果
         print(f"[HIT_TESTING DEBUG] Query: {payload.query}")
         print(f"[HIT_TESTING DEBUG] Collection: {collection_name}")
