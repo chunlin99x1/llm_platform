@@ -70,6 +70,9 @@ export function WorkflowConfigPanel({
     // 变量类型状态
     const [variableTypes, setVariableTypes] = useState<{ type: string; label: string; color: string }[]>([]);
 
+    // 模型参数模态框状态
+    const { isOpen: isModelParamsModalOpen, onOpenChange: onModelParamsModalOpenChange } = useDisclosure();
+
     // 变量管理模态框状态
     const { isOpen: isVarModalOpen, onOpenChange: onVarModalOpenChange } = useDisclosure();
     const [editingVariable, setEditingVariable] = useState<any>(null);
@@ -361,58 +364,25 @@ export function WorkflowConfigPanel({
                                         <Settings size={10} />
                                         参数
                                     </div>
+                                    <Button
+                                        size="sm"
+                                        variant="flat"
+                                        className="w-full h-8 text-[11px] justify-between px-3 bg-content2/50 hover:bg-content2"
+                                        onPress={onModelParamsModalOpenChange}
+                                        endContent={<Settings size={12} className="text-foreground-500" />}
+                                    >
+                                        <span className="text-foreground-600">
+                                            Temp: {selectedNode.data?.temperature ?? 0.7} / Max: {selectedNode.data?.maxTokens ?? 2048}
+                                        </span>
+                                    </Button>
 
-                                    {/* Parameter Item Component Logic */}
-                                    {[
-                                        { label: "Temperature", key: "temperature", min: 0, max: 2, step: 0.1, desc: ["精确", "创意"], default: 0.7 },
-                                        { label: "Top P", key: "topP", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
-                                        { label: "Presence Penalty", key: "presencePenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
-                                        { label: "Frequency Penalty", key: "frequencyPenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
-                                        { label: "Max Tokens", key: "maxTokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
-                                    ].map((param) => (
-                                        <div key={param.key} className="px-1 group">
-                                            <div className="flex items-center justify-between mb-1.5 h-6">
-                                                <span className="text-[11px] font-medium text-foreground-700">{param.label}</span>
-                                                <div className="flex items-center gap-2">
-                                                    <Input
-                                                        size="sm"
-                                                        variant="flat"
-                                                        type="number"
-                                                        value={String(selectedNode.data?.[param.key] ?? param.default)}
-                                                        onValueChange={(v) => {
-                                                            let val = parseFloat(v);
-                                                            if (isNaN(val)) return;
-                                                            if (param.isInt) val = Math.floor(val);
-                                                            // Clamp value
-                                                            if (val < param.min) val = param.min;
-                                                            if (val > param.max) val = param.max;
-                                                            updateSelectedNode({ [param.key]: val });
-                                                        }}
-                                                        classNames={{
-                                                            base: "w-14",
-                                                            input: "text-[10px] font-mono text-right p-0",
-                                                            inputWrapper: "h-6 min-h-6 px-1.5 bg-transparent group-hover:bg-content2/50 transition-colors shadow-none"
-                                                        }}
-                                                    />
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="range"
-                                                    min={param.min}
-                                                    max={param.max}
-                                                    step={param.step}
-                                                    value={selectedNode.data?.[param.key] ?? param.default}
-                                                    onChange={(e) => updateSelectedNode({ [param.key]: param.isInt ? parseInt(e.target.value) : parseFloat(e.target.value) })}
-                                                    className="flex-1 h-1.5 bg-content2 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary-600 transition-all"
-                                                />
-                                            </div>
-                                            <div className="flex justify-between text-[9px] text-foreground-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                                <span>{param.desc[0]}</span>
-                                                <span>{param.desc[1]}</span>
-                                            </div>
-                                        </div>
-                                    ))}
+                                    {/* 模型参数模态框 */}
+                                    <ModelParamsModal
+                                        isOpen={isModelParamsModalOpen}
+                                        onOpenChange={onModelParamsModalOpenChange}
+                                        data={selectedNode.data}
+                                        onChange={updateSelectedNode}
+                                    />
                                 </div>
 
                                 {/* Prompt */}
@@ -1188,6 +1158,89 @@ function VariableModal({
                                 className="text-[11px]"
                             >
                                 确定
+                            </Button>
+                        </ModalFooter>
+                    </>
+                )}
+            </ModalContent>
+        </Modal>
+    );
+}
+
+function ModelParamsModal({
+    isOpen,
+    onOpenChange,
+    data,
+    onChange
+}: {
+    isOpen: boolean;
+    onOpenChange: () => void;
+    data: any;
+    onChange: (patch: Record<string, any>) => void;
+}) {
+    return (
+        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="sm">
+            <ModalContent>
+                {(onClose) => (
+                    <>
+                        <ModalHeader className="flex flex-col gap-1 text-[13px]">模型参数配置</ModalHeader>
+                        <ModalBody className="pb-6">
+                            <div className="flex flex-col gap-5">
+                                {[
+                                    { label: "Temperature", key: "temperature", min: 0, max: 2, step: 0.1, desc: ["精确", "创意"], default: 0.7 },
+                                    { label: "Top P", key: "topP", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
+                                    { label: "Presence Penalty", key: "presencePenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+                                    { label: "Frequency Penalty", key: "frequencyPenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+                                    { label: "Max Tokens", key: "maxTokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
+                                ].map((param) => (
+                                    <div key={param.key} className="group">
+                                        <div className="flex items-center justify-between mb-2 h-6">
+                                            <span className="text-[12px] font-medium text-foreground-700">{param.label}</span>
+                                            <div className="flex items-center gap-2">
+                                                <Input
+                                                    size="sm"
+                                                    variant="flat"
+                                                    type="number"
+                                                    value={String(data?.[param.key] ?? param.default)}
+                                                    onValueChange={(v) => {
+                                                        let val = parseFloat(v);
+                                                        if (isNaN(val)) return;
+                                                        if (param.isInt) val = Math.floor(val);
+                                                        // Clamp value
+                                                        if (val < param.min) val = param.min;
+                                                        if (val > param.max) val = param.max;
+                                                        onChange({ [param.key]: val });
+                                                    }}
+                                                    classNames={{
+                                                        base: "w-16",
+                                                        input: "text-[11px] font-mono text-right p-0",
+                                                        inputWrapper: "h-7 min-h-7 px-2 bg-content2/50 transition-colors shadow-none"
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <input
+                                                type="range"
+                                                min={param.min}
+                                                max={param.max}
+                                                step={param.step}
+                                                value={data?.[param.key] ?? param.default}
+                                                onChange={(e) => onChange({ [param.key]: param.isInt ? parseInt(e.target.value) : parseFloat(e.target.value) })}
+                                                className="flex-1 h-1.5 bg-content2 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary-600 transition-all"
+                                            />
+                                        </div>
+                                        <div className="flex justify-between text-[10px] text-foreground-400 mt-1.5">
+                                            <span>{param.desc[0]}</span>
+                                            <span>{param.desc[1]}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button color="primary" size="sm" onPress={onClose} className="text-[11px]">
+                                完成
                             </Button>
                         </ModalFooter>
                     </>
