@@ -491,7 +491,10 @@ export default function ModelProviderSettings() {
                                         placeholder='{ "temperature": { "min": 0, "max": 1, "default": 0.7 } }'
                                         value={modelForm.config}
                                         onValueChange={(v) => setModelForm({ ...modelForm, config: v })}
-                                        classNames={{ input: "font-mono text-xs", inputWrapper: "min-h-[100px]" }}
+                                        classNames={{
+                                            input: "font-mono text-xs text-white leading-relaxed",
+                                            inputWrapper: "min-h-[200px] bg-[#1e1e1e] border-default-200 hover:border-primary focus-within:border-primary !outline-none"
+                                        }}
                                     />
                                     <div className="text-xs text-default-400">
                                         定义该模型的参数规则 (JSON)，用于前端动态渲染。

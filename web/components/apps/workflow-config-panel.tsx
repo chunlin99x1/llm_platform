@@ -731,7 +731,10 @@ export function WorkflowConfigPanel({
                                     placeholder="# 在此输入代码..."
                                     value={selectedNode.data?.code || ""}
                                     onValueChange={(v) => updateSelectedNode({ code: v })}
-                                    classNames={{ input: "font-mono text-[11px] leading-tight" }}
+                                    classNames={{
+                                        input: "font-mono text-[11px] leading-relaxed text-white",
+                                        inputWrapper: "bg-[#1e1e1e] p-2 border-default-200 hover:border-primary focus-within:border-primary !outline-none"
+                                    }}
                                 />
                                 <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
                                     <div className="text-[10px] text-foreground-600 leading-tight">
