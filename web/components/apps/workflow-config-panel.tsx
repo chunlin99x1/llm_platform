@@ -88,7 +88,7 @@ export function WorkflowConfigPanel({
 
         const fetchKnowledgeBases = async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/api/knowledge-bases`);
+                const res = await fetch(`${API_BASE_URL}/knowledge/datasets`);
                 if (res.ok) {
                     const data = await res.json();
                     setKnowledgeBases(data);
