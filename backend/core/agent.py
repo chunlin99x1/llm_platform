@@ -207,5 +207,16 @@ async def agent_stream(
             # ✅ 循环结束后，仍在 async with 内
             yield {"type": "done"}
 
-    except Exception as e:
-        yield {"type": "error", "content": f"Agent 执行错误: {str(e)}"}
+    except BaseException as e:
+        # 处理 ExceptionGroup (Python 3.11+) 或 TaskGroup 错误
+        error_details = str(e)
+        if hasattr(e, 'exceptions'):
+            # ExceptionGroup 包含多个子异常
+            sub_errors = []
+            for idx, sub_exc in enumerate(e.exceptions):
+                sub_errors.append(f"[{idx}] {type(sub_exc).__name__}: {sub_exc}")
+            error_details = f"{str(e)}\n详细错误:\n" + "\n".join(sub_errors)
+        
+        import traceback
+        logger.error(f"Agent 执行错误: {error_details}\n{traceback.format_exc()}")
+        yield {"type": "error", "content": f"Agent 执行错误: {error_details}"}

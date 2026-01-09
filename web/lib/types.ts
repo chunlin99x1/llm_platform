@@ -52,6 +52,7 @@ export type AgentToolTrace = {
   name?: string | null;
   args: Record<string, unknown>;
   result: string;
+  mcp_server?: string | null;  // MCP 服务器名称，如果是 MCP 工具
 };
 
 export type PromptVariable = {

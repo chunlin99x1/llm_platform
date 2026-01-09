@@ -65,8 +65,9 @@ async def mcp_connection_manager(mcp_servers: List[Dict[str, Any]]) -> AsyncGene
 
                 # 5. 为每个工具添加 MCP 服务器名称元数据
                 for tool in tools:
-                    # 在工具对象上存储 MCP 服务器名称
-                    tool.mcp_server_name = name
+                    # 使用 object.__setattr__ 绕过 Pydantic 验证
+                    # 因为 StructuredTool 是 Pydantic 模型，不能直接设置任意属性
+                    object.__setattr__(tool, 'mcp_server_name', name)
                 
                 all_tools.extend(tools)
                 logger.info(f"MCP: 已连接至 {name}, 加载工具数: {len(tools)}")

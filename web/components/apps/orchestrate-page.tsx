@@ -287,7 +287,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             } else if (event.type === "trace") {
               setToolTraces((prev) => [
                 ...prev,
-                { id: event.id, name: event.name, args: event.args, result: "执行中..." },
+                { id: event.id, name: event.name, args: event.args, result: "执行中...", mcp_server: event.mcp_server },
               ]);
             } else if (event.type === "trace_result") {
               setToolTraces((prev) => prev.map((t) => (t.id === event.id ? { ...t, result: event.result } : t)));

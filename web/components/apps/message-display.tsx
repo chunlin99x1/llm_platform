@@ -72,8 +72,16 @@ export function MessageDisplay({ output, error, toolTraces = [], messageLabel = 
                                 aria-label={trace.name || "Tool"}
                                 title={
                                     <div className="flex items-center gap-2">
-                                        <Activity size={10} className="text-primary/60" />
-                                        <span>使用工具: {trace.name}</span>
+                                        <Activity size={10} className={trace.mcp_server ? "text-blue-500" : "text-primary/60"} />
+                                        <span>
+                                            {trace.mcp_server ? (
+                                                <>
+                                                    <span className="text-blue-600">[{trace.mcp_server}]</span>
+                                                    <span className="mx-1">→</span>
+                                                </>
+                                            ) : null}
+                                            {trace.name}
+                                        </span>
                                         {trace.result === "执行中..." && (
                                             <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
                                         )}
