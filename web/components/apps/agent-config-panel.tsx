@@ -75,7 +75,20 @@ interface AgentConfigPanelProps {
     setModelConfig: (config: Record<string, any>) => void;
 }
 
-// ... (toolIcons definition remains same) ...
+// 工具图标映射
+const toolIcons: Record<string, any> = {
+    calc: Terminal,
+    duckduckgo_search: Search,
+    wikipedia: Book,
+    web_page_reader: Globe,
+    get_current_datetime: Clock,
+    python_repl: FileCode,
+    read_file: FileText,
+    write_file: FileText,
+    list_directory: Folder,
+    file_delete: Trash2,
+    echo: Zap,
+};
 
 export function AgentConfigPanel({
     instructions,
@@ -96,7 +109,114 @@ export function AgentConfigPanel({
     // Model Params Modal State
     const { isOpen: isModelParamsOpen, onOpen: onModelParamsOpen, onOpenChange: onModelParamsOpenChange } = useDisclosure();
 
-    // ... (Variable Modal State & MCP Server State remain same) ...
+    // Variable Modal State
+    const { isOpen, onOpen, onOpenChange } = useDisclosure();
+    const [editingVar, setEditingVar] = useState<PromptVariable | null>(null);
+    const [varKey, setVarKey] = useState("");
+    const [varName, setVarName] = useState("");
+    const [varType, setVarType] = useState<"string" | "number" | "select">("string");
+
+    // MCP Server State
+    const { isOpen: isMCPOpen, onOpen: onMCPOpen, onOpenChange: onMCPOpenChange } = useDisclosure();
+    const [editingMCPServer, setEditingMCPServer] = useState<MCPServer | null>(null);
+    const [mcpName, setMcpName] = useState("");
+    const [mcpUrl, setMcpUrl] = useState("");
+
+    // 计算工具名字典以便快速查找
+    const allToolNames = useMemo(() => {
+        return new Set(availableTools.flatMap(cat => cat.tools.map(t => t.name)));
+    }, [availableTools]);
+
+    // 计算已启用工具数量
+    const enabledCount = useMemo(() => {
+        return enabledTools.filter(name => allToolNames.has(name)).length;
+    }, [enabledTools, allToolNames]);
+
+    const totalCount = availableTools.reduce((sum, cat) => sum + cat.tools.length, 0);
+
+    // 切换工具启用状态
+    const toggleTool = (toolName: string, enabled: boolean) => {
+        if (enabled) {
+            setEnabledTools((prev) => [...prev, toolName]);
+        } else {
+            setEnabledTools((prev) => prev.filter((t) => t !== toolName));
+        }
+    };
+
+    // Variable Operations
+    const handleAddVariable = () => {
+        setEditingVar(null);
+        setVarKey("");
+        setVarName("");
+        setVarType("string");
+        onOpen();
+    };
+
+    const handleEditVariable = (v: PromptVariable) => {
+        setEditingVar(v);
+        setVarKey(v.key);
+        setVarName(v.name);
+        setVarType(v.type);
+        onOpen();
+    };
+
+    const handleDeleteVariable = (key: string) => {
+        setVariables(variables.filter((v) => v.key !== key));
+    };
+
+    const handleSaveVariable = () => {
+        if (!varKey || !varName) return;
+
+        const newVar: PromptVariable = {
+            key: varKey,
+            name: varName,
+            type: varType,
+        };
+
+        if (editingVar) {
+            setVariables(variables.map((v) => (v.key === editingVar.key ? newVar : v)));
+        } else {
+            setVariables([...variables, newVar]);
+        }
+        onOpenChange();
+    };
+
+    // MCP Operations
+    const handleAddMCPServer = () => {
+        setEditingMCPServer(null);
+        setMcpName("");
+        setMcpUrl("");
+        onMCPOpen();
+    };
+
+    const handleEditMCPServer = (server: MCPServer) => {
+        setEditingMCPServer(server);
+        setMcpName(server.name);
+        setMcpUrl(server.url);
+        onMCPOpen();
+    };
+
+    const handleSaveMCPServer = () => {
+        if (!mcpName || !mcpUrl) return;
+
+        const newServer: MCPServer = {
+            id: editingMCPServer?.id || Math.random().toString(36).substring(7),
+            name: mcpName,
+            url: mcpUrl,
+            status: "connected"
+        };
+
+        if (editingMCPServer) {
+            setMcpServers(mcpServers.map(s => s.id === editingMCPServer.id ? newServer : s));
+        } else {
+            setMcpServers([...mcpServers, newServer]);
+        }
+        onMCPOpenChange();
+    };
+
+    const handleDeleteMCPServer = (id: string) => {
+        setMcpServers(mcpServers.filter(s => s.id !== id));
+    };
 
     return (
         <div className="w-[420px] flex flex-col border-r border-divider bg-background overflow-hidden">
@@ -138,15 +258,20 @@ export function AgentConfigPanel({
                             size="sm"
                             variant="flat"
                             placeholder="Select a model"
-                            selectedKeys={modelConfig.model ? [modelConfig.model] : []}
+                            selectedKeys={(() => {
+                                // Find ID matching current config
+                                const current = models.find(
+                                    m => m.provider === modelConfig.provider && m.name === modelConfig.model
+                                );
+                                return current ? [String(current.id)] : [];
+                            })()}
                             onChange={(e) => {
-                                const selected = models.find(m => m.id === e.target.value);
+                                const selected = models.find(m => String(m.id) === e.target.value);
                                 if (selected) {
                                     setModelConfig({
                                         ...modelConfig,
                                         provider: selected.provider,
-                                        model: selected.id,  // use id as model name usually
-                                        // Reset specific params if needed, or keep them
+                                        model: selected.name,  // Store NAME, not ID
                                     });
                                 }
                             }}

@@ -93,10 +93,12 @@ export default function OrchestratePage({ appId }: { appId: number }) {
         if (modelRes.ok) {
           const providers = await modelRes.json();
           const allModels: ProviderModel[] = providers.flatMap((p: any) =>
-            p.models.map((m: any) => ({
-              ...m,
-              provider: p.name
-            }))
+            p.models
+              .filter((m: any) => m.model_type === "llm")
+              .map((m: any) => ({
+                ...m,
+                provider: p.name
+              }))
           );
           setModels(allModels);
         }
