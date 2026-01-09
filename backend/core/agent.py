@@ -13,11 +13,12 @@ from typing import Any, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage, ToolMessage
 
-from core.llm import chat_llm
+from core.llm import chat_llm, create_llm_instance
 from core.tools import resolve_tools
 from core.mcp import mcp_connection_manager
 
 logger = logging.getLogger(__name__)
+
 
 async def _invoke_tool(tool_obj: Any, args: Dict[str, Any]) -> str:
     """
@@ -52,13 +53,23 @@ async def agent_stream(
     messages: List[BaseMessage],
     enabled_tools: Optional[List[str]] = None,
     mcp_servers: Optional[List[Dict[str, Any]]] = None,
+    llm_config: Optional[Dict[str, Any]] = None,
     max_iters: int = 8,
 ) -> AsyncGenerator[Dict[str, Any], None]:
     """
     流式生成器，输出事件数据包。
     """
     try:
-        llm = chat_llm()
+        if llm_config:
+            # llm_config should look like: {"provider": "...", "model": "...", "parameters": {...}}
+            llm = await create_llm_instance(
+                provider=llm_config.get("provider", "openai"),
+                model=llm_config.get("model", "gpt-4o"),
+                parameters=llm_config.get("parameters", {})
+            )
+        else:
+            llm = chat_llm()
+            
         local_tools = resolve_tools(enabled_tools)
 
         # 使用上下文管理器加载 MCP 工具

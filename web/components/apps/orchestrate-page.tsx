@@ -31,7 +31,7 @@ import {
 import "reactflow/dist/style.css";
 
 import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChatStream, listTools } from "@/lib/api";
-import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer } from "@/lib/types";
+import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer, ProviderModel } from "@/lib/types";
 import { v4 as uuidv4 } from "uuid";
 
 // Import extracted components
@@ -42,6 +42,8 @@ import { WorkflowConfigPanel } from "./workflow-config-panel";
 import { WorkflowPreview } from "./workflow-preview";
 import { useWorkflowShortcuts } from "./workflow-history";
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 export default function OrchestratePage({ appId }: { appId: number }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -49,6 +51,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
 
   const [app, setApp] = useState<AppItem | null>(null);
   const [availableTools, setAvailableTools] = useState<ToolCategory[]>([]);
+  const [models, setModels] = useState<ProviderModel[]>([]);
 
   // Workflow State
   const [selectedId, setSelectedId] = useState<string>("");
@@ -60,6 +63,11 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   const [enabledTools, setEnabledTools] = useState<string[]>([]);
   const [variables, setVariables] = useState<PromptVariable[]>([]);
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+  const [modelConfig, setModelConfig] = useState<Record<string, any>>({
+    provider: "openai",
+    model: "gpt-4o",
+    parameters: {}
+  });
 
   const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) || null, [nodes, selectedId]);
 
@@ -79,6 +87,20 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     (async () => {
       try {
         setLoading(true);
+
+        // Fetch models
+        const modelRes = await fetch(`${API_BASE_URL}/settings/model-providers`);
+        if (modelRes.ok) {
+          const providers = await modelRes.json();
+          const allModels: ProviderModel[] = providers.flatMap((p: any) =>
+            p.models.map((m: any) => ({
+              ...m,
+              provider: p.name
+            }))
+          );
+          setModels(allModels);
+        }
+
         const [appData, wfData, toolsData] = await Promise.all([
           getApp(appId),
           getWorkflow(appId),
@@ -94,6 +116,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           setEnabledTools(g.enabled_tools || []);
           setVariables((g.prompt_variables as PromptVariable[]) || []);
           setMcpServers((g.mcp_servers as MCPServer[]) || []);
+          if (g.model_config) {
+            setModelConfig(g.model_config);
+          }
         } else {
           const g = (wfData.graph || {}) as WorkflowGraph;
           const loadedNodes = ((g.nodes || []) as Node[]).map((n) => ({
@@ -203,7 +228,13 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     try {
       const graphPayload =
         app?.mode === "agent"
-          ? { instructions, enabled_tools: enabledTools, prompt_variables: variables, mcp_servers: mcpServers }
+          ? {
+            instructions,
+            enabled_tools: enabledTools,
+            prompt_variables: variables,
+            mcp_servers: mcpServers,
+            model_config: modelConfig
+          }
           : { nodes, edges };
       await updateWorkflow(appId, { graph: graphPayload });
     } catch (e) {
@@ -211,7 +242,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     } finally {
       setSaving(false);
     }
-  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, nodes, edges]);
+  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, modelConfig, nodes, edges]);
 
   // 注册快捷键
   useWorkflowShortcuts({
@@ -245,6 +276,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             instructions: instructions,
             enabled_tools: enabledTools,
             mcp_servers: mcpServers,
+            llm_config: modelConfig,
             inputs: cleanInputs,
           },
           (event) => {
@@ -426,6 +458,9 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 setVariables={setVariables}
                 mcpServers={mcpServers}
                 setMcpServers={setMcpServers}
+                models={models}
+                modelConfig={modelConfig}
+                setModelConfig={setModelConfig}
               />
               <AgentPreview
                 runOutput={runOutput}

@@ -70,12 +70,21 @@ export type MCPServer = {
   status?: "connected" | "disconnected" | "error";
 };
 
+
+export interface ProviderModel {
+  id: string;
+  name: string;
+  provider: string;
+  config?: any;
+}
+
 export type AgentChatRequest = {
   session_id?: string;
   input: string;
   instructions?: string;
   enabled_tools?: string[];
   mcp_servers?: MCPServer[];
+  llm_config?: Record<string, any>;
   inputs?: Record<string, unknown>;
 };
 
