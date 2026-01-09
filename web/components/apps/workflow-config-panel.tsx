@@ -27,7 +27,20 @@ import {
     Repeat,
     FileCode,
     BookOpen,
+    Trash2,
+    Edit3,
 } from "lucide-react";
+import {
+    Modal,
+    ModalContent,
+    ModalHeader,
+    ModalBody,
+    ModalFooter,
+    useDisclosure,
+    Checkbox,
+    Select,
+    SelectItem
+} from "@heroui/react";
 import type { Node, Edge } from "reactflow";
 import { VariableSelector } from "./workflow-variable-selector";
 
@@ -56,6 +69,13 @@ export function WorkflowConfigPanel({
     const [knowledgeBases, setKnowledgeBases] = useState<{ id: number; name: string }[]>([]);
     // 变量类型状态
     const [variableTypes, setVariableTypes] = useState<{ type: string; label: string; color: string }[]>([]);
+
+    // 变量管理模态框状态
+    const { isOpen: isVarModalOpen, onOpenChange: onVarModalOpenChange } = useDisclosure();
+    const [editingVariable, setEditingVariable] = useState<any>(null);
+    const [editingVariableIndex, setEditingVariableIndex] = useState<number>(-1);
+
+
 
     // 从后端获取模型列表和知识库列表
     useEffect(() => {
@@ -342,110 +362,57 @@ export function WorkflowConfigPanel({
                                         参数
                                     </div>
 
-                                    {/* Temperature */}
-                                    <div className="px-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] text-foreground-600">Temperature</span>
-                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.temperature ?? 0.7}</span>
+                                    {/* Parameter Item Component Logic */}
+                                    {[
+                                        { label: "Temperature", key: "temperature", min: 0, max: 2, step: 0.1, desc: ["精确", "创意"], default: 0.7 },
+                                        { label: "Top P", key: "topP", min: 0, max: 1, step: 0.05, desc: ["0", "1"], default: 1.0 },
+                                        { label: "Presence Penalty", key: "presencePenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+                                        { label: "Frequency Penalty", key: "frequencyPenalty", min: 0, max: 2, step: 0.1, desc: ["0", "2"], default: 0 },
+                                        { label: "Max Tokens", key: "maxTokens", min: 1, max: 8192, step: 1, desc: ["1", "8192"], default: 2048, isInt: true },
+                                    ].map((param) => (
+                                        <div key={param.key} className="px-1 group">
+                                            <div className="flex items-center justify-between mb-1.5 h-6">
+                                                <span className="text-[11px] font-medium text-foreground-700">{param.label}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <Input
+                                                        size="sm"
+                                                        variant="flat"
+                                                        type="number"
+                                                        value={String(selectedNode.data?.[param.key] ?? param.default)}
+                                                        onValueChange={(v) => {
+                                                            let val = parseFloat(v);
+                                                            if (isNaN(val)) return;
+                                                            if (param.isInt) val = Math.floor(val);
+                                                            // Clamp value
+                                                            if (val < param.min) val = param.min;
+                                                            if (val > param.max) val = param.max;
+                                                            updateSelectedNode({ [param.key]: val });
+                                                        }}
+                                                        classNames={{
+                                                            base: "w-14",
+                                                            input: "text-[10px] font-mono text-right p-0",
+                                                            inputWrapper: "h-6 min-h-6 px-1.5 bg-transparent group-hover:bg-content2/50 transition-colors shadow-none"
+                                                        }}
+                                                    />
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-3">
+                                                <input
+                                                    type="range"
+                                                    min={param.min}
+                                                    max={param.max}
+                                                    step={param.step}
+                                                    value={selectedNode.data?.[param.key] ?? param.default}
+                                                    onChange={(e) => updateSelectedNode({ [param.key]: param.isInt ? parseInt(e.target.value) : parseFloat(e.target.value) })}
+                                                    className="flex-1 h-1.5 bg-content2 rounded-lg appearance-none cursor-pointer accent-primary hover:accent-primary-600 transition-all"
+                                                />
+                                            </div>
+                                            <div className="flex justify-between text-[9px] text-foreground-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                <span>{param.desc[0]}</span>
+                                                <span>{param.desc[1]}</span>
+                                            </div>
                                         </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="2"
-                                            step="0.1"
-                                            value={selectedNode.data?.temperature ?? 0.7}
-                                            onChange={(e) => updateSelectedNode({ temperature: parseFloat(e.target.value) })}
-                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                        />
-                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
-                                            <span>精确</span>
-                                            <span>创意</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Top P */}
-                                    <div className="px-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] text-foreground-600">Top P</span>
-                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.topP ?? 1.0}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="1"
-                                            step="0.05"
-                                            value={selectedNode.data?.topP ?? 1.0}
-                                            onChange={(e) => updateSelectedNode({ topP: parseFloat(e.target.value) })}
-                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                        />
-                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
-                                            <span>0</span>
-                                            <span>1</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Max Tokens */}
-                                    <div className="px-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] text-foreground-600">Max Tokens</span>
-                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.maxTokens ?? 2048}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="256"
-                                            max="8192"
-                                            step="256"
-                                            value={selectedNode.data?.maxTokens ?? 2048}
-                                            onChange={(e) => updateSelectedNode({ maxTokens: parseInt(e.target.value) })}
-                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                        />
-                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
-                                            <span>256</span>
-                                            <span>8192</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Presence Penalty */}
-                                    <div className="px-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] text-foreground-600">Presence Penalty</span>
-                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.presencePenalty ?? 0}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="2"
-                                            step="0.1"
-                                            value={selectedNode.data?.presencePenalty ?? 0}
-                                            onChange={(e) => updateSelectedNode({ presencePenalty: parseFloat(e.target.value) })}
-                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                        />
-                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
-                                            <span>0</span>
-                                            <span>2</span>
-                                        </div>
-                                    </div>
-
-                                    {/* Frequency Penalty */}
-                                    <div className="px-1">
-                                        <div className="flex items-center justify-between mb-1">
-                                            <span className="text-[10px] text-foreground-600">Frequency Penalty</span>
-                                            <span className="text-[10px] font-mono text-primary">{selectedNode.data?.frequencyPenalty ?? 0}</span>
-                                        </div>
-                                        <input
-                                            type="range"
-                                            min="0"
-                                            max="2"
-                                            step="0.1"
-                                            value={selectedNode.data?.frequencyPenalty ?? 0}
-                                            onChange={(e) => updateSelectedNode({ frequencyPenalty: parseFloat(e.target.value) })}
-                                            className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-                                        />
-                                        <div className="flex justify-between text-[8px] text-foreground-400 mt-0.5">
-                                            <span>0</span>
-                                            <span>2</span>
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
 
                                 {/* Prompt */}
@@ -487,72 +454,95 @@ export function WorkflowConfigPanel({
 
                         {selectedNode.type === "start" && (
                             <section className="flex flex-col gap-3">
+                                {/* 变量管理模态框 */}
+                                <VariableModal
+                                    isOpen={isVarModalOpen}
+                                    onOpenChange={onVarModalOpenChange}
+                                    initialData={editingVariable}
+                                    onSave={(newVar) => {
+                                        const vars = [...(selectedNode.data?.variables || [])];
+                                        if (editingVariableIndex >= 0) {
+                                            vars[editingVariableIndex] = newVar;
+                                        } else {
+                                            vars.push(newVar);
+                                        }
+                                        updateSelectedNode({ variables: vars });
+                                        onVarModalOpenChange();
+                                    }}
+                                />
+
                                 {/* 输入字段标题和添加按钮 */}
-                                <div className="flex items-center justify-between">
+                                <div className="flex items-center justify-between px-1">
                                     <div className="text-[11px] font-semibold text-foreground">输入字段</div>
-                                    <Dropdown>
-                                        <DropdownTrigger>
-                                            <Button size="sm" variant="light" className="h-6 px-2 text-[10px] text-primary">
-                                                <Plus size={12} className="mr-1" />
-                                                添加
-                                            </Button>
-                                        </DropdownTrigger>
-                                        <DropdownMenu
-                                            aria-label="变量类型"
-                                            onAction={(key) => {
-                                                const vars = [...(selectedNode.data?.variables || [])];
-                                                const varName = `input${vars.length + 1}`;
-                                                vars.push({ name: varName, type: key as string, required: true });
-                                                updateSelectedNode({ variables: vars });
-                                            }}
-                                        >
-                                            {variableTypes.map((vt) => (
-                                                <DropdownItem key={vt.type}>{vt.label}</DropdownItem>
-                                            ))}
-                                        </DropdownMenu>
-                                    </Dropdown>
+                                    <Button
+                                        size="sm"
+                                        variant="light"
+                                        className="h-6 px-2 text-[10px] text-primary"
+                                        onPress={() => {
+                                            setEditingVariable(null);
+                                            setEditingVariableIndex(-1);
+                                            onVarModalOpenChange();
+                                        }}
+                                    >
+                                        <Plus size={12} className="mr-1" />
+                                        添加
+                                    </Button>
+                                </div>
+
+                                {/* 变量列表表头 */}
+                                <div className="flex items-center px-3 py-1 bg-content2/50 rounded-t-lg border-b border-divider text-[10px] text-foreground-400 font-medium">
+                                    <span className="flex-1">字段名</span>
+                                    <span className="w-16">类型</span>
+                                    <span className="w-8 text-center">必填</span>
+                                    <span className="w-10 text-center">操作</span>
                                 </div>
 
                                 {/* 用户变量列表 */}
-                                <div className="space-y-1">
-                                    {(selectedNode.data?.variables || []).map((v: { name: string; type: string; required?: boolean }, index: number) => (
+                                <div className="flex flex-col border-x border-b border-divider rounded-b-lg divide-y divide-divider bg-content1/30">
+                                    {(selectedNode.data?.variables || []).length === 0 && (
+                                        <div className="py-4 text-center text-[10px] text-foreground-400">
+                                            暂无输入变量，点击右上角添加
+                                        </div>
+                                    )}
+                                    {(selectedNode.data?.variables || []).map((v: any, index: number) => (
                                         <div
                                             key={index}
-                                            className="flex h-9 items-center justify-between rounded-lg border border-divider bg-content2/50 px-2 shadow-xs hover:shadow-sm transition-shadow group"
+                                            className="flex items-center px-3 h-8 hover:bg-content2/50 transition-colors group"
                                         >
-                                            <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                                                <Variable size={12} className="text-primary shrink-0" />
-                                                <Input
-                                                    size="sm"
-                                                    variant="underlined"
-                                                    value={v.name}
-                                                    onValueChange={(val) => {
-                                                        const vars = [...(selectedNode.data?.variables || [])];
-                                                        vars[index] = { ...vars[index], name: val };
-                                                        updateSelectedNode({ variables: vars });
-                                                    }}
-                                                    classNames={{
-                                                        base: "max-w-[100px]",
-                                                        input: "text-[12px] font-medium font-mono",
-                                                        inputWrapper: "h-6 min-h-6 !px-0 after:hidden shadow-none bg-transparent"
-                                                    }}
-                                                />
+                                            <div className="flex-1 flex items-center gap-2 min-w-0">
+                                                <Variable size={10} className="text-primary/70 shrink-0" />
+                                                <span className="text-[11px] font-mono text-foreground-700 truncate">{v.name}</span>
                                             </div>
-                                            <div className="flex items-center gap-1">
-                                                {v.required && <span className="text-[10px] text-foreground-400 mr-1">必填</span>}
-                                                <span className="text-[10px] text-foreground-400">{v.type}</span>
+                                            <div className="w-16 text-[10px] text-foreground-500 truncate">{v.type}</div>
+                                            <div className="w-8 flex justify-center">
+                                                {v.required && <div className="w-1.5 h-1.5 rounded-full bg-danger" />}
+                                            </div>
+                                            <div className="w-10 flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                 <Button
                                                     isIconOnly
                                                     size="sm"
                                                     variant="light"
-                                                    className="h-5 w-5 min-w-5 opacity-0 group-hover:opacity-100 transition-opacity"
+                                                    className="h-5 w-5 min-w-5 text-foreground-400 hover:text-primary"
+                                                    onPress={() => {
+                                                        setEditingVariable(v);
+                                                        setEditingVariableIndex(index);
+                                                        onVarModalOpenChange();
+                                                    }}
+                                                >
+                                                    <Edit3 size={10} />
+                                                </Button>
+                                                <Button
+                                                    isIconOnly
+                                                    size="sm"
+                                                    variant="light"
+                                                    className="h-5 w-5 min-w-5 text-foreground-400 hover:text-danger"
                                                     onPress={() => {
                                                         const vars = [...(selectedNode.data?.variables || [])];
                                                         vars.splice(index, 1);
                                                         updateSelectedNode({ variables: vars });
                                                     }}
                                                 >
-                                                    <span className="text-danger text-sm">×</span>
+                                                    <Trash2 size={10} />
                                                 </Button>
                                             </div>
                                         </div>
@@ -562,23 +552,22 @@ export function WorkflowConfigPanel({
                                 {/* 分隔线 */}
                                 <div className="h-px bg-divider my-1" />
 
-                                {/* 系统变量 */}
+                                {/* 系统变量 - 保持现有样式但更紧凑 */}
                                 <div className="space-y-1">
-                                    <div className="text-[10px] font-medium text-foreground-400 mb-1">系统变量</div>
-                                    {[
-                                        { name: "sys.query", type: "String" },
-                                        { name: "sys.files", type: "Array[File]" },
-                                        { name: "sys.user_id", type: "String" },
-                                        { name: "sys.conversation_id", type: "String" },
-                                    ].map((v) => (
-                                        <div key={v.name} className="flex h-8 items-center justify-between rounded-lg border border-divider bg-content2/30 px-2.5">
-                                            <div className="flex items-center gap-1.5">
-                                                <Variable size={12} className="text-foreground-400" />
-                                                <span className="text-[12px] text-foreground-500">{v.name}</span>
+                                    <div className="text-[10px] font-medium text-foreground-400 mb-1 px-1">系统变量</div>
+                                    <div className="grid grid-cols-2 gap-2">
+                                        {[
+                                            { name: "sys.query", type: "String" },
+                                            { name: "sys.files", type: "Array[File]" },
+                                            { name: "sys.user_id", type: "String" },
+                                            { name: "sys.conversation_id", type: "String" },
+                                        ].map((v) => (
+                                            <div key={v.name} className="flex h-7 items-center justify-between rounded border border-divider bg-content2/30 px-2">
+                                                <span className="text-[10px] font-mono text-foreground-500 truncate">{v.name}</span>
+                                                <span className="text-[9px] text-foreground-400">{v.type}</span>
                                             </div>
-                                            <span className="text-[10px] text-foreground-400">{v.type}</span>
-                                        </div>
-                                    ))}
+                                        ))}
+                                    </div>
                                 </div>
                             </section>
                         )}
@@ -1096,5 +1085,114 @@ export function WorkflowConfigPanel({
                 )}
             </ScrollShadow>
         </div>
+    );
+}
+
+function VariableModal({
+    isOpen,
+    onOpenChange,
+    initialData,
+    onSave
+}: {
+    isOpen: boolean;
+    onOpenChange: () => void;
+    initialData: any | null;
+    onSave: (data: any) => void;
+}) {
+    const [formData, setFormData] = useState({
+        name: "",
+        type: "string",
+        required: true,
+        description: "",
+        ...initialData
+    });
+
+    useEffect(() => {
+        if (isOpen) {
+            setFormData({
+                name: "",
+                type: "string",
+                required: true,
+                description: "",
+                ...initialData
+            });
+        }
+    }, [isOpen, initialData]);
+
+    const variableTypes = [
+        { type: 'string', label: '文本 (String)' },
+        { type: 'number', label: '数字 (Number)' },
+        { type: 'object', label: '对象 (Object)' },
+        { type: 'array[string]', label: '文本列表' },
+        { type: 'file', label: '单文件 (File)' },
+        { type: 'array[file]', label: '文件列表' },
+    ];
+
+    return (
+        <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="sm">
+            <ModalContent>
+                {(onClose) => (
+                    <>
+                        <ModalHeader className="flex flex-col gap-1 text-[13px]">
+                            {initialData ? "编辑变量" : "添加变量"}
+                        </ModalHeader>
+                        <ModalBody className="pb-6">
+                            <div className="flex flex-col gap-4">
+                                <Input
+                                    label="变量名"
+                                    labelPlacement="outside"
+                                    placeholder="例如: query"
+                                    value={formData.name}
+                                    onValueChange={(v) => setFormData({ ...formData, name: v })}
+                                    variant="bordered"
+                                    size="sm"
+                                    classNames={{ label: "text-[11px]", input: "text-[12px] font-mono" }}
+                                />
+                                <Select
+                                    label="变量类型"
+                                    labelPlacement="outside"
+                                    placeholder="选择类型"
+                                    selectedKeys={[formData.type]}
+                                    onChange={(e) => setFormData({ ...formData, type: e.target.value })}
+                                    variant="bordered"
+                                    size="sm"
+                                    classNames={{ label: "text-[11px]", value: "text-[12px]" }}
+                                >
+                                    {variableTypes.map((t) => (
+                                        <SelectItem key={t.type} textValue={t.label}>
+                                            {t.label}
+                                        </SelectItem>
+                                    ))}
+                                </Select>
+                                <Checkbox
+                                    isSelected={formData.required}
+                                    onValueChange={(v) => setFormData({ ...formData, required: v })}
+                                    size="sm"
+                                >
+                                    <span className="text-[12px]">必填项</span>
+                                </Checkbox>
+                            </div>
+                        </ModalBody>
+                        <ModalFooter>
+                            <Button variant="light" size="sm" onPress={onClose} className="text-[11px]">
+                                取消
+                            </Button>
+                            <Button
+                                color="primary"
+                                size="sm"
+                                onPress={() => {
+                                    if (!formData.name) return;
+                                    onSave(formData);
+                                    onClose();
+                                }}
+                                className="text-[11px]"
+                            >
+                                确定
+                            </Button>
+                        </ModalFooter>
+                    </>
+                )}
+            </ModalContent>
+        </Modal>
     );
 }
