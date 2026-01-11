@@ -48,16 +48,32 @@ export function LLMNodeConfig({
                             size="sm"
                             className="justify-between h-9 text-[11px] w-full"
                         >
-                            {selectedNode.data?.model || "gpt-4o"}
+                            {selectedNode.data?.modelConfig?.model || "选择模型"}
                             <span className="text-foreground-400">▼</span>
                         </Button>
                     </DropdownTrigger>
                     <DropdownMenu
                         aria-label="选择模型"
-                        onAction={(key) => updateSelectedNode({ model: key as string })}
+                        onAction={(key) => {
+                            // key format: provider:name
+                            const [p, n] = (key as string).split(":");
+                            const selected = models.find(m => m.provider === p && m.name === n);
+
+                            if (selected) {
+                                const currentConfig = selectedNode.data?.modelConfig || {};
+                                updateSelectedNode({
+                                    modelConfig: {
+                                        ...currentConfig,
+                                        provider: selected.provider,
+                                        model: selected.name,
+                                        parameters: currentConfig.parameters || {}
+                                    }
+                                });
+                            }
+                        }}
                     >
                         {models.map((m) => (
-                            <DropdownItem key={m.id}>
+                            <DropdownItem key={`${m.provider}:${m.name}`}>
                                 {m.name}
                                 <span className="text-[9px] text-foreground-400 ml-1">({m.provider})</span>
                             </DropdownItem>
@@ -80,7 +96,10 @@ export function LLMNodeConfig({
                     endContent={<Settings size={12} className="text-foreground-500" />}
                 >
                     <span className="text-foreground-600">
-                        Temp: {selectedNode.data?.temperature ?? 0.7} / Max: {selectedNode.data?.maxTokens ?? 2048}
+                        {(() => {
+                            const params = selectedNode.data?.modelConfig?.parameters || {};
+                            return `Temp: ${params.temperature ?? 0.7} / Max: ${params.max_tokens ?? 2048}`
+                        })()}
                     </span>
                 </Button>
 
@@ -88,9 +107,17 @@ export function LLMNodeConfig({
                 <ModelParamsModal
                     isOpen={isModelParamsModalOpen}
                     onOpenChange={onModelParamsModalOpenChange}
-                    data={selectedNode.data}
-                    onChange={updateSelectedNode}
-                    modelConfig={models.find(m => m.id === selectedNode.data?.model)?.config}
+                    data={selectedNode.data?.modelConfig?.parameters || {}}
+                    onChange={(patch) => {
+                        const currentConfig = selectedNode.data?.modelConfig || {};
+                        updateSelectedNode({
+                            modelConfig: {
+                                ...currentConfig,
+                                parameters: { ...currentConfig.parameters, ...patch }
+                            }
+                        });
+                    }}
+                    modelConfig={models.find(m => m.provider === selectedNode.data?.modelConfig?.provider && m.name === selectedNode.data?.modelConfig?.model)?.config}
                 />
             </div>
 

@@ -21,5 +21,5 @@ async def execute_start_node(
     
     yield {
         "type": "result",
-        "outputs": {node_id: {"variables": state["inputs"]}}
+        "outputs": {node_id: state["inputs"]}
     }

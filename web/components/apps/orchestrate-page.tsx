@@ -326,8 +326,10 @@ export default function OrchestratePage({ appId }: { appId: number }) {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            input: runInput,
-            context: { app_id: appId, ...cleanInputs }
+            inputs: { ...cleanInputs, input: runInput },
+            context: { app_id: appId },
+            graph: { nodes, edges },
+            response_mode: "streaming"
           })
         });
 
@@ -543,7 +545,16 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             setRunInput={setRunInput}
             running={running}
             onRun={onRun}
-            variables={variables}
+            variables={(() => {
+              if (isAgent) return variables;
+              const startNode = nodes.find(n => n.type === 'start');
+              return (startNode?.data?.variables || []).map((v: any) => ({
+                key: v.name,
+                name: v.name,
+                type: (v.type || 'string').toLowerCase(),
+                required: v.required
+              }));
+            })()}
             nodeRunStatus={nodeRunStatus}
             nodes={nodes}
           />

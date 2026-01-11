@@ -16,17 +16,27 @@ async def execute_llm_node(
     from langchain_core.messages import HumanMessage
 
     # 从节点配置获取模型信息
+    # 从节点配置获取模型信息
     model_config = node_data.get("modelConfig", {})
     provider = model_config.get("provider")
     model = model_config.get("model")
-    
+    parameters = model_config.get("parameters", {})
+
+    # Fallback to Dify style configuration (under "model" key)
+    if not provider or not model:
+        dify_model_config = node_data.get("model", {})
+        if dify_model_config:
+            provider = dify_model_config.get("provider")
+            model = dify_model_config.get("name")  # Dify uses 'name' for model name
+            parameters = dify_model_config.get("completion_params", {})
+
     if not provider or not model:
         raise ValueError(f"LLM 节点 '{node_id}' 缺少模型配置。请在节点中配置 provider 和 model。")
     
     llm = await create_llm_instance(
         provider=provider,
         model=model,
-        parameters=model_config.get("parameters", {})
+        parameters=parameters
     )
     prompt_template = node_data.get("prompt", "")
 

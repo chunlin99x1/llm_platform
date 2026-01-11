@@ -18,8 +18,12 @@ class ChatResponse(BaseModel):
 
 
 class WorkflowRunRequest(BaseModel):
-    input: str
+    input: Optional[str] = None
+    inputs: Dict[str, Any] = Field(default_factory=dict)
     context: Dict[str, Any] = Field(default_factory=dict)
+    graph: Optional[Dict[str, Any]] = None  # 支持直接传入图配置
+    response_mode: str = "streaming"
+    user: Optional[str] = None
 
 
 class WorkflowRunResponse(BaseModel):
