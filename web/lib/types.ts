@@ -69,6 +69,11 @@ export type MCPServer = {
   name: string;
   url: string;
   status?: "connected" | "disconnected" | "error";
+  tools?: {
+    name: string;
+    description?: string;
+    input_schema: Record<string, any>;
+  }[];
 };
 
 

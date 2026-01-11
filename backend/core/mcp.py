@@ -83,3 +83,37 @@ async def mcp_connection_manager(mcp_servers: List[Dict[str, Any]]) -> AsyncGene
         print(all_tools)
         yield all_tools
 
+
+async def fetch_mcp_tools(url: str) -> List[Dict[str, Any]]:
+    """
+    连接 MCP 服务器并获取工具列表（不保持连接）。
+    返回工具定义的列表（OpenAPI JSON Schema 格式）。
+    """
+    tools_data = []
+    try:
+        async with AsyncExitStack() as stack:
+            # 1. 建立 SSE 连接
+            read_stream, write_stream = await stack.enter_async_context(
+                sse_client(url, timeout=10)
+            )
+            
+            # 2. 初始化 Session
+            session = await stack.enter_async_context(ClientSession(read_stream, write_stream))
+            await session.initialize()
+            
+            # 3. 列出工具
+            result = await session.list_tools()
+            
+            # 4. 转换为字典格式
+            for tool in result.tools:
+                tools_data.append({
+                    "name": tool.name,
+                    "description": tool.description,
+                    "input_schema": tool.inputSchema
+                })
+                
+    except Exception as e:
+        logger.error(f"Failed to fetch tools from {url}: {e}")
+        raise e
+        
+    return tools_data

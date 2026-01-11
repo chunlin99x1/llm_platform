@@ -21,6 +21,7 @@ import {
     Slider,
     Button,
     Input,
+    Checkbox,
     Modal,
     ModalContent,
     ModalHeader,
@@ -31,7 +32,11 @@ import {
     SelectItem,
     Tabs,
     Tab,
+    Popover,
+    PopoverTrigger,
+    PopoverContent,
 } from "@heroui/react";
+import { toast } from "sonner";
 import {
     Terminal,
     Search,
@@ -133,6 +138,7 @@ export function AgentConfigPanel({
     const [editingMCPServer, setEditingMCPServer] = useState<MCPServer | null>(null);
     const [mcpName, setMcpName] = useState("");
     const [mcpUrl, setMcpUrl] = useState("");
+    const [mcpSaving, setMcpSaving] = useState(false);
 
     // 计算工具名字典以便快速查找
     const allToolNames = useMemo(() => {
@@ -208,22 +214,54 @@ export function AgentConfigPanel({
         onMCPOpen();
     };
 
-    const handleSaveMCPServer = () => {
+    const handleSaveMCPServer = async () => {
         if (!mcpName || !mcpUrl) return;
 
-        const newServer: MCPServer = {
-            id: editingMCPServer?.id || Math.random().toString(36).substring(7),
-            name: mcpName,
-            url: mcpUrl,
-            status: "connected"
-        };
+        setMcpSaving(true);
+        try {
+            // Fetch tools from the MCP server
+            let tools = [];
+            try {
+                // 使用 /api/mcp/tools 路径，匹配后端配置（去掉了 /v1）
+                const resp = await fetch("/api/mcp/tools", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: mcpUrl }),
+                });
 
-        if (editingMCPServer) {
-            setMcpServers(mcpServers.map(s => s.id === editingMCPServer.id ? newServer : s));
-        } else {
-            setMcpServers([...mcpServers, newServer]);
+                if (resp.ok) {
+                    tools = await resp.json();
+                    toast.success(`成功连接，获取到 ${tools.length} 个工具`);
+                } else {
+                    const err = await resp.json();
+                    toast.error(`连接失败: ${err.detail || "未知错误"}`);
+                    setMcpSaving(false);
+                    return;
+                }
+            } catch (e) {
+                console.error("Failed to fetch MCP tools:", e);
+                toast.error("连接 MCP 服务器失败");
+                setMcpSaving(false);
+                return;
+            }
+
+            const newServer: MCPServer = {
+                id: editingMCPServer?.id || Math.random().toString(36).substring(7),
+                name: mcpName,
+                url: mcpUrl,
+                status: "connected",
+                tools: tools
+            };
+
+            if (editingMCPServer) {
+                setMcpServers(mcpServers.map(s => s.id === editingMCPServer.id ? newServer : s));
+            } else {
+                setMcpServers([...mcpServers, newServer]);
+            }
+            onMCPOpenChange();
+        } finally {
+            setMcpSaving(false);
         }
-        onMCPOpenChange();
     };
 
     const handleDeleteMCPServer = (id: string) => {
@@ -623,42 +661,69 @@ export function AgentConfigPanel({
                                         {mcpServers.map((server) => (
                                             <div
                                                 key={server.id}
-                                                className="group relative flex items-center gap-3 p-3 rounded-xl bg-content2/30 border border-transparent hover:border-blue-500/30 hover:bg-white hover:shadow-sm transition-all duration-200"
+                                                className="group relative flex flex-col gap-0 p-3 rounded-xl bg-content2/30 border border-transparent hover:border-blue-500/30 hover:bg-white hover:shadow-sm transition-all duration-200"
                                             >
-                                                <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                                                    <Link size={14} className="text-blue-500" />
+                                                <div className="flex items-center gap-3 w-full">
+                                                    <div className="h-8 w-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                                                        <Link size={14} className="text-blue-500" />
+                                                    </div>
+
+                                                    <div className="flex-1 min-w-0">
+                                                        <div className="flex items-center gap-1.5 mb-0.5">
+                                                            <span className="text-[11px] font-bold text-foreground truncate">{server.name}</span>
+                                                            <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                                                        </div>
+                                                        <div className="text-[9px] text-foreground/40 font-mono truncate flex items-center gap-2">
+                                                            <span>{server.url}</span>
+                                                            {server.tools && server.tools.length > 0 && (
+                                                                <span className="px-1 py-px bg-blue-50 text-blue-600 rounded text-[9px]">
+                                                                    {server.tools.length} 工具
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                                        <Button
+                                                            isIconOnly
+                                                            size="sm"
+                                                            variant="light"
+                                                            className="h-6 w-6 min-w-0 text-foreground/40 hover:text-blue-600"
+                                                            onPress={() => handleEditMCPServer(server)}
+                                                        >
+                                                            <Settings size={12} />
+                                                        </Button>
+                                                        <Button
+                                                            isIconOnly
+                                                            size="sm"
+                                                            variant="light"
+                                                            className="h-6 w-6 min-w-0 text-foreground/40 hover:text-danger"
+                                                            onPress={() => handleDeleteMCPServer(server.id)}
+                                                        >
+                                                            <Trash2 size={12} />
+                                                        </Button>
+                                                    </div>
                                                 </div>
 
-                                                <div className="flex-1 min-w-0">
-                                                    <div className="flex items-center gap-1.5 mb-0.5">
-                                                        <span className="text-[11px] font-bold text-foreground truncate">{server.name}</span>
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-success animate-pulse" />
+                                                {server.tools && server.tools.length > 0 && (
+                                                    <div className="mt-3 pt-3 border-t border-divider/50 w-full">
+                                                        <div className="grid grid-cols-1 gap-2">
+                                                            {server.tools.map((tool, idx) => (
+                                                                <div key={idx} className="bg-white/50 dark:bg-black/20 p-2 rounded border border-gray-100 dark:border-gray-800 flex flex-col gap-0.5">
+                                                                    <div className="text-[10px] font-semibold text-foreground/80 flex items-center gap-1.5">
+                                                                        <div className="w-1 h-1 rounded-full bg-blue-400"></div>
+                                                                        {tool.name}
+                                                                    </div>
+                                                                    {tool.description && (
+                                                                        <div className="text-[9px] text-foreground/50 truncate pl-2.5">
+                                                                            {tool.description}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-[9px] text-foreground/40 font-mono truncate">
-                                                        {server.url}
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity">
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        variant="light"
-                                                        className="h-6 w-6 min-w-0 text-foreground/40 hover:text-blue-600"
-                                                        onPress={() => handleEditMCPServer(server)}
-                                                    >
-                                                        <Settings size={12} />
-                                                    </Button>
-                                                    <Button
-                                                        isIconOnly
-                                                        size="sm"
-                                                        variant="light"
-                                                        className="h-6 w-6 min-w-0 text-foreground/40 hover:text-danger"
-                                                        onPress={() => handleDeleteMCPServer(server.id)}
-                                                    >
-                                                        <Trash2 size={12} />
-                                                    </Button>
-                                                </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -874,11 +939,11 @@ export function AgentConfigPanel({
                             </div>
                         </Tab>
                     </Tabs>
-                </div>
-            </ScrollShadow>
+                </div >
+            </ScrollShadow >
 
             {/* Config Variable Modal */}
-            <Modal isOpen={isOpen} onOpenChange={onOpenChange} size="md" backdrop="blur">
+            < Modal isOpen={isOpen} onOpenChange={onOpenChange} size="md" backdrop="blur" >
                 <ModalContent>
                     {(onClose) => (
                         <>
@@ -974,10 +1039,10 @@ export function AgentConfigPanel({
                         </>
                     )}
                 </ModalContent>
-            </Modal>
+            </Modal >
 
             {/* MCP Server Modal */}
-            <Modal isOpen={isMCPOpen} onOpenChange={onMCPOpenChange} size="md" backdrop="blur">
+            < Modal isOpen={isMCPOpen} onOpenChange={onMCPOpenChange} size="md" backdrop="blur" >
                 <ModalContent>
                     {(onClose) => (
                         <>
@@ -1042,17 +1107,18 @@ export function AgentConfigPanel({
                                 <Button
                                     color="primary"
                                     onPress={handleSaveMCPServer}
-                                    isDisabled={!mcpName || !mcpUrl}
+                                    isDisabled={!mcpName || !mcpUrl || mcpSaving}
+                                    isLoading={mcpSaving}
                                     className="font-bold text-xs shadow-md shadow-primary/20"
                                 >
-                                    {editingMCPServer ? "保存更改" : "添加连接"}
+                                    保存
                                 </Button>
                             </ModalFooter>
                         </>
                     )}
                 </ModalContent>
-            </Modal>
+            </Modal >
 
-        </div>
+        </div >
     );
 }
