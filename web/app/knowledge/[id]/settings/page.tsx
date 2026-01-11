@@ -21,6 +21,8 @@ interface KnowledgeBase {
     description: string | null;
     embedding_provider: string;
     embedding_model: string | null;
+    rerank_provider: string | null;
+    rerank_model: string | null;
     retrieval_mode: string;
     document_count: number;
     word_count: number;
@@ -30,6 +32,12 @@ interface KnowledgeBase {
         chunk_size?: number;
         chunk_overlap?: number;
     } | null;
+}
+
+interface ModelOption {
+    provider: string;
+    model: string;
+    name: string;
 }
 
 const retrievalModes = [
@@ -52,9 +60,40 @@ export default function SettingsPage() {
     const [chunkSize, setChunkSize] = useState("500");
     const [chunkOverlap, setChunkOverlap] = useState("50");
 
+    // Rerank 模型设置
+    const [rerankModels, setRerankModels] = useState<ModelOption[]>([]);
+    const [selectedRerankModel, setSelectedRerankModel] = useState<string | null>(null);
+
     useEffect(() => {
         loadKnowledgeBase();
+        loadRerankModels();
     }, [kbId]);
+
+    async function loadRerankModels() {
+        try {
+            const resp = await fetch("/api/settings/model-providers");
+            if (resp.ok) {
+                const providers = await resp.json();
+                const rerankOptions: ModelOption[] = [];
+                for (const p of providers) {
+                    if (p.models) {
+                        for (const m of p.models) {
+                            if (m.model_type === "rerank" && m.enabled) {
+                                rerankOptions.push({
+                                    provider: p.name,
+                                    model: m.name,
+                                    name: `${p.name}/${m.name}`
+                                });
+                            }
+                        }
+                    }
+                }
+                setRerankModels(rerankOptions);
+            }
+        } catch (e) {
+            console.error("Failed to load rerank models:", e);
+        }
+    }
 
     async function loadKnowledgeBase() {
         try {
@@ -68,6 +107,10 @@ export default function SettingsPage() {
                 if (data.indexing_config) {
                     setChunkSize(data.indexing_config.chunk_size?.toString() || "500");
                     setChunkOverlap(data.indexing_config.chunk_overlap?.toString() || "50");
+                }
+                // 设置 rerank 模型
+                if (data.rerank_provider && data.rerank_model) {
+                    setSelectedRerankModel(`${data.rerank_provider}:${data.rerank_model}`);
                 }
             }
         } catch (e) {
@@ -90,7 +133,9 @@ export default function SettingsPage() {
                     indexing_config: {
                         chunk_size: parseInt(chunkSize) || 500,
                         chunk_overlap: parseInt(chunkOverlap) || 50
-                    }
+                    },
+                    rerank_provider: selectedRerankModel ? selectedRerankModel.split(":")[0] : null,
+                    rerank_model: selectedRerankModel ? selectedRerankModel.split(":")[1] : null
                 }),
             });
 
@@ -235,6 +280,40 @@ export default function SettingsPage() {
                                 </DropdownMenu>
                             </Dropdown>
                             <p className="text-xs text-gray-500 mt-1">此模式将作为该知识库被引用时的默认检索策略。</p>
+                        </div>
+
+                        {/* Rerank 模型设置 */}
+                        <div className="flex flex-col gap-2 mt-4">
+                            <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Rerank 模型</label>
+                            <Dropdown>
+                                <DropdownTrigger>
+                                    <Button
+                                        variant="bordered"
+                                        size="md"
+                                        className="w-full justify-between text-left h-10 border-gray-300"
+                                        endContent={<ChevronDown size={16} className="text-gray-400" />}
+                                    >
+                                        <div className="flex flex-col items-start text-sm">
+                                            {selectedRerankModel
+                                                ? rerankModels.find(m => `${m.provider}:${m.model}` === selectedRerankModel)?.name || selectedRerankModel
+                                                : "无 (不启用重排序)"}
+                                        </div>
+                                    </Button>
+                                </DropdownTrigger>
+                                <DropdownMenu
+                                    onAction={(key) => setSelectedRerankModel(key === "none" ? null : key as string)}
+                                    selectionMode="single"
+                                    selectedKeys={selectedRerankModel ? new Set([selectedRerankModel]) : new Set(["none"])}
+                                >
+                                    <DropdownItem key="none">无 (不启用重排序)</DropdownItem>
+                                    {rerankModels.map(m => (
+                                        <DropdownItem key={`${m.provider}:${m.model}`}>
+                                            {m.name}
+                                        </DropdownItem>
+                                    ))}
+                                </DropdownMenu>
+                            </Dropdown>
+                            <p className="text-xs text-gray-500 mt-1">选择用于结果重排序的模型。重排序可提升检索结果的相关性。</p>
                         </div>
                     </div>
                 </div>

@@ -56,6 +56,9 @@ class KnowledgeSettings(BaseModel):
     retrieval_mode: str = "hybrid"  # semantic, keyword, hybrid
     score_threshold: float = 0.0
     rerank_enabled: bool = False
+    rerank_provider: Optional[str] = None  # 重排序模型供应商（覆盖知识库默认配置）
+    rerank_model: Optional[str] = None  # 重排序模型名称（覆盖知识库默认配置）
+    rerank_top_k: int = 3  # 重排序返回数量
     fallback_to_model: bool = True
 
 

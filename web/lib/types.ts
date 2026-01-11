@@ -85,6 +85,11 @@ export interface KnowledgeBase {
   description?: string | null;
   document_count: number;
   created_at: string;
+  embedding_provider?: string;
+  embedding_model?: string;
+  retrieval_mode?: string;
+  rerank_provider?: string;
+  rerank_model?: string;
 }
 
 export interface KnowledgeSettings {
@@ -92,6 +97,9 @@ export interface KnowledgeSettings {
   retrieval_mode?: "semantic" | "keyword" | "hybrid";  // 检索方式，默认 hybrid
   score_threshold?: number;  // 分数阈值，默认 0.0
   rerank_enabled?: boolean;  // 是否启用重排序，默认 false
+  rerank_provider?: string;  // 重排序模型供应商（覆盖知识库配置）
+  rerank_model?: string;  // 重排序模型名称（覆盖知识库配置）
+  rerank_top_k?: number;  // 重排序返回数量，默认 3
   fallback_to_model?: boolean;  // 没有命中时是否使用模型知识，默认 true
 }
 

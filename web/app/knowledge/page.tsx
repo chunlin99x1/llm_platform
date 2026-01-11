@@ -147,10 +147,12 @@ export default function KnowledgePage() {
         const [provider, model] = modelKey.split(":");
 
         // Parse rerank model
+        let rerankProvider = null;
         let rerankModelName = null;
         const rerankKey = Array.from(selectedRerankModel)[0] as string;
         if (rerankKey) {
-            const [_, rModel] = rerankKey.split(":");
+            const [rProvider, rModel] = rerankKey.split(":");
+            rerankProvider = rProvider;
             rerankModelName = rModel;
         }
 
@@ -165,6 +167,7 @@ export default function KnowledgePage() {
                     retrieval_mode: newRetrievalMode,
                     embedding_provider: provider,
                     embedding_model: model,
+                    rerank_provider: rerankProvider,
                     rerank_model: rerankModelName
                 }),
             });

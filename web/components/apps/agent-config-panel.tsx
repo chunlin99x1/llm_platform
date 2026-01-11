@@ -801,15 +801,63 @@ export function AgentConfigPanel({
                                                 />
                                             </div>
 
-                                            {/* 重排序 */}
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[11px] text-foreground/70">启用重排序</span>
-                                                <Switch
-                                                    size="sm"
-                                                    isSelected={knowledgeSettings.rerank_enabled || false}
-                                                    onValueChange={(val) => setKnowledgeSettings({ ...knowledgeSettings, rerank_enabled: val })}
-                                                />
-                                            </div>
+                                            {/* 重排序 - 仅当选中的知识库配置了 rerank_model 时显示 */}
+                                            {(() => {
+                                                // 检查选中的知识库是否有 rerank_model 配置
+                                                const hasRerankConfig = knowledgeBases.some(
+                                                    kb => selectedKBs.includes(kb.id) && kb.rerank_model
+                                                );
+                                                if (!hasRerankConfig) return null;
+
+                                                return (
+                                                    <>
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-[11px] text-foreground/70">启用重排序</span>
+                                                            <Switch
+                                                                size="sm"
+                                                                isSelected={knowledgeSettings.rerank_enabled || false}
+                                                                onValueChange={(val) => setKnowledgeSettings({ ...knowledgeSettings, rerank_enabled: val })}
+                                                            />
+                                                        </div>
+
+                                                        {/* Rerank 配置 - 仅当启用重排序时显示 */}
+                                                        {knowledgeSettings.rerank_enabled && (
+                                                            <>
+                                                                {/* 显示知识库配置的 Rerank 模型信息 */}
+                                                                {(() => {
+                                                                    const selectedKB = knowledgeBases.find(
+                                                                        kb => selectedKBs.includes(kb.id) && kb.rerank_model
+                                                                    );
+                                                                    if (selectedKB) {
+                                                                        return (
+                                                                            <div className="flex items-center justify-between text-[11px]">
+                                                                                <span className="text-foreground/70">Rerank 模型</span>
+                                                                                <span className="text-foreground/50">
+                                                                                    {selectedKB.rerank_provider}/{selectedKB.rerank_model}
+                                                                                </span>
+                                                                            </div>
+                                                                        );
+                                                                    }
+                                                                    return null;
+                                                                })()}
+                                                                <div className="flex items-center justify-between">
+                                                                    <span className="text-[11px] text-foreground/70">重排序返回数量</span>
+                                                                    <Input
+                                                                        type="number"
+                                                                        size="sm"
+                                                                        min={1}
+                                                                        max={20}
+                                                                        value={String(knowledgeSettings.rerank_top_k || 3)}
+                                                                        onChange={(e) => setKnowledgeSettings({ ...knowledgeSettings, rerank_top_k: Number(e.target.value) })}
+                                                                        className="w-16"
+                                                                        classNames={{ input: "text-center text-[11px]", inputWrapper: "h-7 min-h-7" }}
+                                                                    />
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
 
                                             {/* 回退到模型知识 */}
                                             <div className="flex items-center justify-between">

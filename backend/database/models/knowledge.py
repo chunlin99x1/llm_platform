@@ -13,6 +13,7 @@ class KnowledgeBase(Model):
     description = fields.TextField(null=True)
     embedding_provider = fields.CharField(max_length=32, default="openai")
     embedding_model = fields.CharField(max_length=128, null=True)
+    rerank_provider = fields.CharField(max_length=32, null=True)  # rerank 模型供应商
     rerank_model = fields.CharField(max_length=128, null=True)
     retrieval_mode = fields.CharField(max_length=32, default="hybrid")
     indexing_config = fields.JSONField(null=True)  # 默认索引配置：chunk_size, overlap 等

@@ -33,6 +33,7 @@ class CreateKnowledgeBaseRequest(BaseModel):
     description: Optional[str] = None
     embedding_provider: str = "openai"
     embedding_model: Optional[str] = None
+    rerank_provider: Optional[str] = None
     rerank_model: Optional[str] = None
     retrieval_mode: str = "hybrid"  # semantic, keyword, hybrid
 
@@ -43,6 +44,10 @@ class KnowledgeBaseResponse(BaseModel):
     description: Optional[str]
     document_count: int
     created_at: datetime
+    embedding_provider: Optional[str]
+    embedding_model: Optional[str]
+    retrieval_mode: Optional[str]
+    rerank_provider: Optional[str]
     rerank_model: Optional[str]
 
 
@@ -76,6 +81,7 @@ class UpdateKnowledgeBaseRequest(BaseModel):
     description: Optional[str] = None
     embedding_provider: Optional[str] = None
     embedding_model: Optional[str] = None
+    rerank_provider: Optional[str] = None
     rerank_model: Optional[str] = None
     retrieval_mode: Optional[str] = None  # semantic, keyword, hybrid
     indexing_config: Optional[dict] = None  # 索引配置
@@ -86,10 +92,11 @@ class KnowledgeBaseDetailResponse(BaseModel):
     id: int
     name: str
     description: Optional[str]
-    embedding_provider: str
+    embedding_provider: Optional[str]
     embedding_model: Optional[str]
+    rerank_provider: Optional[str]
     rerank_model: Optional[str]
-    retrieval_mode: str
+    retrieval_mode: Optional[str]
     indexing_config: Optional[dict]
     document_count: int
     word_count: int  # 总字符数
@@ -199,6 +206,7 @@ async def create_knowledge_base(payload: CreateKnowledgeBaseRequest):
         description=payload.description,
         embedding_provider=payload.embedding_provider,
         embedding_model=payload.embedding_model,
+        rerank_provider=payload.rerank_provider,
         rerank_model=payload.rerank_model,
         retrieval_mode=payload.retrieval_mode
     )
@@ -217,6 +225,11 @@ async def create_knowledge_base(payload: CreateKnowledgeBaseRequest):
         name=kb.name,
         description=kb.description,
         document_count=0,
+        embedding_provider=kb.embedding_provider,
+        embedding_model=kb.embedding_model,
+        retrieval_mode=kb.retrieval_mode,
+        rerank_provider=kb.rerank_provider,
+        rerank_model=kb.rerank_model,
         created_at=kb.created_at
     )
 
@@ -234,6 +247,10 @@ async def list_knowledge_bases():
             name=kb.name,
             description=kb.description,
             document_count=doc_count,
+            embedding_provider=kb.embedding_provider,
+            embedding_model=kb.embedding_model,
+            retrieval_mode=kb.retrieval_mode,
+            rerank_provider=kb.rerank_provider,
             rerank_model=kb.rerank_model,
             created_at=kb.created_at
         ))
@@ -255,6 +272,11 @@ async def get_knowledge_base(kb_id: int):
         name=kb.name,
         description=kb.description,
         document_count=doc_count,
+        embedding_provider=kb.embedding_provider,
+        embedding_model=kb.embedding_model,
+        retrieval_mode=kb.retrieval_mode,
+        rerank_provider=kb.rerank_provider,
+        rerank_model=kb.rerank_model,
         created_at=kb.created_at
     )
 
@@ -535,6 +557,8 @@ async def update_knowledge_base(kb_id: int, payload: UpdateKnowledgeBaseRequest)
         kb.embedding_model = payload.embedding_model
     if hasattr(payload, 'rerank_model') and payload.rerank_model is not None:
          kb.rerank_model = payload.rerank_model
+    if hasattr(payload, 'rerank_provider') and payload.rerank_provider is not None:
+         kb.rerank_provider = payload.rerank_provider
     if payload.retrieval_mode is not None:
         kb.retrieval_mode = payload.retrieval_mode
     if payload.indexing_config is not None:
@@ -553,6 +577,7 @@ async def update_knowledge_base(kb_id: int, payload: UpdateKnowledgeBaseRequest)
         description=kb.description,
         embedding_provider=kb.embedding_provider,
         embedding_model=kb.embedding_model,
+        rerank_provider=kb.rerank_provider,
         rerank_model=kb.rerank_model,
         retrieval_mode=kb.retrieval_mode,
         indexing_config=kb.indexing_config,
@@ -580,6 +605,7 @@ async def get_knowledge_base_detail(kb_id: int):
         description=kb.description,
         embedding_provider=kb.embedding_provider,
         embedding_model=kb.embedding_model,
+        rerank_provider=kb.rerank_provider,
         rerank_model=kb.rerank_model,
         retrieval_mode=kb.retrieval_mode,
         indexing_config=kb.indexing_config,

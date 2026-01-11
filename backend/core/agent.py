@@ -53,7 +53,10 @@ async def _retrieve_from_knowledge_bases(
     top_k: int = 3,
     retrieval_mode: str = "hybrid",
     score_threshold: float = 0.0,
-    rerank_enabled: bool = False
+    rerank_enabled: bool = False,
+    rerank_provider: Optional[str] = None,
+    rerank_model: Optional[str] = None,
+    rerank_top_k: int = 3
 ) -> str:
     """
     从多个知识库中检索相关内容。
@@ -128,6 +131,44 @@ async def _retrieve_from_knowledge_bases(
     if not all_results:
         return ""
 
+    # 如果启用了 rerank 且有 rerank 配置，进行重排序
+    if rerank_enabled and all_results:
+        try:
+            from core.rag.reranker import DashScopeReranker
+            from database.models import ModelProvider
+            
+            # 获取 rerank 供应商凭证（优先使用传入的配置，否则使用默认 dashscope）
+            provider_name = rerank_provider or "dashscope"
+            provider_obj = await ModelProvider.get_or_none(name=provider_name)
+            
+            if provider_obj and rerank_model:
+                # 创建 reranker 实例
+                reranker = DashScopeReranker(
+                    model_name=rerank_model,
+                    top_n=rerank_top_k,
+                    api_key=provider_obj.api_key
+                )
+                
+                # 准备用于 rerank 的文档列表
+                documents = [{"content": r["content"], "metadata": {"kb_name": r["kb_name"]}} for r in all_results]
+                
+                # 调用 rerank
+                reranked = await reranker.rerank(query=query, documents=documents, top_k=rerank_top_k)
+                
+                # 根据 rerank 结果重新构建列表
+                if reranked:
+                    reordered = []
+                    for rr in reranked:
+                        reordered.append({
+                            "kb_name": rr.metadata.get("kb_name", ""),
+                            "content": rr.content,
+                            "score": rr.score
+                        })
+                    all_results = reordered
+                    logger.info(f"Rerank 完成，返回 {len(all_results)} 条结果")
+        except Exception as e:
+            logger.warning(f"Rerank 失败，使用原始排序: {e}")
+
     formatted = []
     for i, r in enumerate(all_results[:top_k * 2], 1):  # 最多返回 top_k * 2 条
         formatted.append(f"[{i}] 来源：{r['kb_name']}\n{r['content']}")
@@ -166,6 +207,9 @@ async def agent_stream(
         kb_retrieval_mode = knowledge_settings.retrieval_mode if knowledge_settings else "hybrid"
         kb_score_threshold = knowledge_settings.score_threshold if knowledge_settings else 0.0
         kb_rerank_enabled = knowledge_settings.rerank_enabled if knowledge_settings else False
+        kb_rerank_provider = knowledge_settings.rerank_provider if knowledge_settings else None
+        kb_rerank_model = knowledge_settings.rerank_model if knowledge_settings else None
+        kb_rerank_top_k = knowledge_settings.rerank_top_k if knowledge_settings else 3
         kb_fallback_to_model = knowledge_settings.fallback_to_model if knowledge_settings else True
 
         # 知识库检索：从用户输入获取相关内容
@@ -185,7 +229,10 @@ async def agent_stream(
                     top_k=kb_top_k,
                     retrieval_mode=kb_retrieval_mode,
                     score_threshold=kb_score_threshold,
-                    rerank_enabled=kb_rerank_enabled
+                    rerank_enabled=kb_rerank_enabled,
+                    rerank_provider=kb_rerank_provider,
+                    rerank_model=kb_rerank_model,
+                    rerank_top_k=kb_rerank_top_k
                 )
 
         # 构建增强的 system prompt
