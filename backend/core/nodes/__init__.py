@@ -21,6 +21,11 @@ from .variable import execute_variable_node
 from .knowledge import execute_knowledge_node
 from .iteration import execute_iteration_node
 from .extractor import execute_extractor_node
+from .tool import execute_tool_node
+from .question_classifier import execute_question_classifier_node
+from .document_extractor import execute_document_extractor_node
+from .list_operator import execute_list_operator_node
+from .agent import execute_agent_node
 
 
 # 节点执行器映射
@@ -41,6 +46,13 @@ NODE_EXECUTORS = {
     "iteration": execute_iteration_node,
     "parameter-extractor": execute_extractor_node,
     "extractor": execute_extractor_node,  # 兼容旧版
+    # Phase 2 新增节点
+    "tool": execute_tool_node,
+    "question-classifier": execute_question_classifier_node,
+    "document-extractor": execute_document_extractor_node,
+    "list-operator": execute_list_operator_node,
+    # Phase 3 新增节点
+    "agent": execute_agent_node,
 }
 
 
@@ -74,3 +86,4 @@ async def execute_node(
             yield event
     else:
         yield {"type": "result", "outputs": {}}
+

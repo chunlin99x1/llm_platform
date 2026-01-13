@@ -109,6 +109,21 @@ export function useModels() {
 }
 
 /**
+ * 按类型获取模型列表
+ * @param modelType - 模型类型：llm, embedding, rerank, tts
+ */
+export function useModelsByType(modelType?: string) {
+    const url = modelType
+        ? `/settings/model-providers?model_type=${modelType}`
+        : '/settings/model-providers';
+
+    return useFetch<any[]>(url, {
+        cacheKey: `models-${modelType || 'all'}`,
+        cacheTTL: 5 * 60 * 1000,
+    });
+}
+
+/**
  * 获取知识库列表
  */
 export function useKnowledgeBases() {
@@ -125,6 +140,47 @@ export function useTools() {
         cacheKey: 'tools',
         cacheTTL: 5 * 60 * 1000,
     });
+}
+
+/**
+ * 获取节点类型列表
+ */
+export function useNodeTypes() {
+    return useFetch<{ nodes: any[] }>('/workflow/nodes/types', {
+        cacheKey: 'node-types',
+        cacheTTL: 10 * 60 * 1000,
+    });
+}
+
+/**
+ * 按应用模式获取可用节点类型
+ * @param appMode - 应用模式：workflow, chatflow, agent
+ */
+export function useNodeTypesByMode(appMode?: string) {
+    const { data, loading, error, refetch, mutate } = useNodeTypes();
+
+    // 根据模式过滤节点
+    const filteredNodes = data?.nodes?.filter((node: any) => {
+        if (!appMode) return true;
+
+        // Workflow 模式：排除 answer 节点
+        if (appMode === 'workflow') {
+            return node.type !== 'answer';
+        }
+        // Chatflow/Agent 模式：排除 end 节点
+        if (appMode === 'chatflow' || appMode === 'agent') {
+            return node.type !== 'end';
+        }
+        return true;
+    }) || [];
+
+    return {
+        data: filteredNodes,
+        loading,
+        error,
+        refetch,
+        mutate: (nodes: any[]) => mutate({ nodes }),
+    };
 }
 
 /**
@@ -146,6 +202,16 @@ export function useWorkflow(appId: number) {
 }
 
 /**
+ * 获取会话列表
+ * @param appId - 应用 ID
+ */
+export function useConversations(appId: number) {
+    return useFetch<{ conversations: any[]; total: number }>(`/conversations?app_id=${appId}`, {
+        cacheKey: `conversations-${appId}`,
+    });
+}
+
+/**
  * 清除所有缓存
  */
 export function clearApiCache() {
@@ -158,3 +224,4 @@ export function clearApiCache() {
 export function invalidateCache(key: string) {
     cache.delete(key);
 }
+

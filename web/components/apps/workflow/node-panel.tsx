@@ -1,71 +1,77 @@
-/**
- * 节点选择面板
- * 
- * 根据应用模式（workflow/chatflow）自动过滤可用节点，
- * 使用统一组件，通过配置驱动差异化。
- */
-
 "use client";
 
-import { useMemo } from "react";
+import { useWorkflowContext } from "@/context/workflow-context";
 import {
     Play,
     Square,
-    MessageCircle,
+    MessageSquare,
     Bot,
     GitBranch,
-    GitFork,
-    Repeat,
-    Layers,
-    Code2,
+    Variable,
+    Code,
     Globe,
+    Repeat,
     FileText,
     Database,
-    FileSearch,
+    Wrench,
+    HelpCircle,
+    List,
+    Box,
+    StopCircle, // end
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useWorkflowContext, NODE_CATEGORY_LABELS } from "@/context/workflow-context";
-import type { NodeTypeConfig } from "@/lib/app-mode-config";
 
-// ============== 图标映射 ==============
+// 图标名称规范化映射
+const ICON_NAME_MAP: Record<string, any> = {
+    // API 节点类型 -> 图标组件
+    "start": Play,
+    "end": StopCircle,
+    "answer": MessageSquare,
+    "llm": Box,
+    "tool": Wrench,
+    "agent": Bot,
+    "question-classifier": HelpCircle,
+    "list-operator": List,
+    "document-extractor": FileText,
+    "condition": GitBranch,
+    "iteration": Repeat,
+    "code": Code,
+    "http": Globe,
+    "variable": Variable,
+    "template": FileText,
+    "knowledge": Database,
+    "extractor": FileText,
+    "classifier": GitBranch,
 
-const ICON_MAP: Record<string, LucideIcon> = {
-    Play,
-    Square,
-    MessageCircle,
-    Bot,
-    GitBranch,
-    GitFork,
-    Repeat,
-    Layers,
-    Code2,
-    Globe,
-    FileText,
-    Database,
-    FileSearch,
+    // API icon 字段 -> 图标组件 (仅保留特定不同的或重命名的)
+    "play": Play,
+    "stop-circle": StopCircle,
+    "stop": StopCircle,
+    "box": Box,
+    "message-square": MessageSquare,
+    "git-branch": GitBranch,
+    // "code": Code, // 重复
+    "globe": Globe,
+    // "variable": Variable, // 重复
+    "file-text": FileText,
+    "database": Database,
+    "wrench": Wrench,
+    "help-circle": HelpCircle,
+    "list": List,
+    "bot": Bot,
+    "repeat": Repeat,
 };
 
-function getIconComponent(iconName: string): LucideIcon {
-    return ICON_MAP[iconName] || Play;
+function getIconComponent(iconName: string, nodeType?: string): LucideIcon {
+    // 1. 尝试直接映射 icon 名称
+    if (ICON_NAME_MAP[iconName]) return ICON_NAME_MAP[iconName];
+
+    // 2. 尝试映射 nodeType
+    if (nodeType && ICON_NAME_MAP[nodeType]) return ICON_NAME_MAP[nodeType];
+
+    // 默认
+    return Play;
 }
-
-// ============== 颜色映射 ==============
-
-const BG_COLOR_MAP: Record<string, string> = {
-    "bg-green-500": "bg-green-500",
-    "bg-red-500": "bg-red-500",
-    "bg-blue-500": "bg-blue-500",
-    "bg-purple-500": "bg-purple-500",
-    "bg-amber-500": "bg-amber-500",
-    "bg-teal-500": "bg-teal-500",
-    "bg-indigo-500": "bg-indigo-500",
-    "bg-cyan-500": "bg-cyan-500",
-    "bg-gray-500": "bg-gray-500",
-    "bg-orange-500": "bg-orange-500",
-    "bg-pink-500": "bg-pink-500",
-    "bg-emerald-500": "bg-emerald-500",
-    "bg-rose-500": "bg-rose-500",
-};
 
 // ============== 组件 ==============
 
@@ -93,16 +99,26 @@ export function NodePanel({ onAddNode, className = "" }: NodePanelProps) {
             {/* Scrollable Content */}
             <div className="p-2 max-h-[400px] overflow-y-auto space-y-3">
                 {categoryOrder.map((category) => {
-                    const nodes = nodesByCategory[category];
-                    if (!nodes || nodes.length === 0) return null;
+                    const categoryNodes = nodesByCategory[category];
+                    if (!categoryNodes?.length) return null;
+
+                    // 获取分类标签
+                    const CATEGORY_LABELS: Record<string, string> = {
+                        input: "输入",
+                        output: "输出",
+                        llm: "大语言模型",
+                        logic: "逻辑",
+                        tool: "工具",
+                        data: "知识与数据",
+                    };
 
                     return (
                         <div key={category}>
-                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                                {NODE_CATEGORY_LABELS[category] || category}
+                            <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-1">
+                                {CATEGORY_LABELS[category] || category}
                             </div>
-                            <div className="space-y-0.5">
-                                {nodes.map((node) => (
+                            <div className="space-y-1">
+                                {categoryNodes.map((node) => (
                                     <NodeButton
                                         key={node.type}
                                         node={node}
@@ -121,20 +137,26 @@ export function NodePanel({ onAddNode, className = "" }: NodePanelProps) {
 // ============== 节点按钮 ==============
 
 interface NodeButtonProps {
-    node: NodeTypeConfig;
+    node: any; // 支持 API 返回的 NodeTypeInfo
     onClick: () => void;
 }
 
 function NodeButton({ node, onClick }: NodeButtonProps) {
-    const Icon = getIconComponent(node.icon);
-    const bgColor = BG_COLOR_MAP[node.bgColor] || "bg-gray-500";
+    const Icon = getIconComponent(node.icon, node.type);
+
+    // API 返回的是 hex color (e.g. #3b82f6)
+    const bgStyle = node.color ? { backgroundColor: node.color } : undefined;
+    const bgClass = !node.color ? "bg-gray-500" : "";
 
     return (
         <button
             onClick={onClick}
             className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
         >
-            <div className={`w-5 h-5 rounded-md flex items-center justify-center ${bgColor} shadow-sm`}>
+            <div
+                className={`w-5 h-5 rounded-md flex items-center justify-center shadow-sm ${bgClass}`}
+                style={bgStyle}
+            >
                 <Icon size={10} className="text-white" />
             </div>
             <div className="flex-1 text-left">
@@ -157,22 +179,23 @@ export function NodeList({ onAddNode }: NodeListProps) {
     const { availableNodes } = useWorkflowContext();
 
     return (
-        <div className="space-y-1 max-h-[300px] overflow-y-auto">
-            {availableNodes.map((node) => (
-                <button
-                    key={node.type}
-                    onClick={() => onAddNode(node.type)}
-                    className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left"
-                >
-                    <div className={`w-4 h-4 rounded flex items-center justify-center ${BG_COLOR_MAP[node.bgColor] || "bg-gray-500"}`}>
-                        {(() => {
-                            const Icon = getIconComponent(node.icon);
-                            return <Icon size={8} className="text-white" />;
-                        })()}
-                    </div>
-                    <span className="text-xs text-gray-700">{node.label}</span>
-                </button>
-            ))}
+        <div className="space-y-0.5 max-h-[300px] overflow-y-auto p-1">
+            {availableNodes.map((node) => {
+                const Icon = getIconComponent(node.icon, node.type);
+                const colorStyle = node.color ? { color: node.color } : undefined;
+                const colorClass = !node.color ? "text-gray-500" : "";
+
+                return (
+                    <button
+                        key={node.type}
+                        onClick={() => onAddNode(node.type)}
+                        className="w-full flex items-center gap-2 px-3 py-2 rounded-md hover:bg-gray-100 transition-colors text-left"
+                    >
+                        <Icon size={14} className={colorClass} style={colorStyle} />
+                        <span className="text-xs text-gray-700">{node.label}</span>
+                    </button>
+                )
+            })}
         </div>
     );
 }

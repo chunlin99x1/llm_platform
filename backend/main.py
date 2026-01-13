@@ -11,6 +11,7 @@ from api.routers.workflow_publish import router as workflow_publish_router
 from api.routers.knowledge import router as knowledge_router
 from api.routers.settings import router as settings_router
 from api.routers.mcp import router as mcp_router
+from api.routers.conversations import router as conversations_router
 from database.connection import close_db, init_db, generate_schema
 
 
@@ -51,5 +52,4 @@ app.include_router(mcp_router)
 app.include_router(knowledge_router)
 app.include_router(apps_router)
 app.include_router(settings_router)
-
-
+app.include_router(conversations_router)

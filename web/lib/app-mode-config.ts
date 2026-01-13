@@ -73,7 +73,7 @@ export const NODE_TYPE_CONFIGS: NodeTypeConfig[] = [
     category: "input",
     availableIn: ["workflow", "chatflow", "agent"],
   },
-  
+
   // 输出节点
   {
     type: "end",
@@ -95,7 +95,7 @@ export const NODE_TYPE_CONFIGS: NodeTypeConfig[] = [
     category: "output",
     availableIn: ["chatflow", "agent"], // Chatflow/Agent 专用
   },
-  
+
   // LLM 节点
   {
     type: "llm",
@@ -117,7 +117,7 @@ export const NODE_TYPE_CONFIGS: NodeTypeConfig[] = [
     category: "llm",
     availableIn: ["workflow", "chatflow", "agent"],
   },
-  
+
   // 逻辑节点
   {
     type: "condition",
@@ -149,7 +149,7 @@ export const NODE_TYPE_CONFIGS: NodeTypeConfig[] = [
     category: "logic",
     availableIn: ["workflow", "chatflow", "agent"],
   },
-  
+
   // 工具节点
   {
     type: "code",
@@ -181,7 +181,7 @@ export const NODE_TYPE_CONFIGS: NodeTypeConfig[] = [
     category: "tool",
     availableIn: ["workflow", "chatflow", "agent"],
   },
-  
+
   // 数据节点
   {
     type: "knowledge",
@@ -202,6 +202,60 @@ export const NODE_TYPE_CONFIGS: NodeTypeConfig[] = [
     bgColor: "bg-rose-500",
     category: "data",
     availableIn: ["workflow", "chatflow", "agent"],
+  },
+
+  // Phase 2 新增节点
+  {
+    type: "tool",
+    label: "工具调用",
+    description: "调用单个工具",
+    icon: "Wrench",
+    color: "text-emerald-600",
+    bgColor: "bg-emerald-500",
+    category: "tool",
+    availableIn: ["workflow", "chatflow", "agent"],
+  },
+  {
+    type: "question-classifier",
+    label: "问题分类",
+    description: "基于 LLM 的问题分类",
+    icon: "HelpCircle",
+    color: "text-amber-600",
+    bgColor: "bg-amber-500",
+    category: "llm",
+    availableIn: ["workflow", "chatflow", "agent"],
+  },
+  {
+    type: "document-extractor",
+    label: "文档提取",
+    description: "从 PDF/Word 提取文本",
+    icon: "FileText",
+    color: "text-indigo-600",
+    bgColor: "bg-indigo-500",
+    category: "data",
+    availableIn: ["workflow", "chatflow", "agent"],
+  },
+  {
+    type: "list-operator",
+    label: "列表操作",
+    description: "过滤、排序、切片列表",
+    icon: "List",
+    color: "text-cyan-600",
+    bgColor: "bg-cyan-500",
+    category: "logic",
+    availableIn: ["workflow", "chatflow", "agent"],
+  },
+
+  // Phase 3 新增节点
+  {
+    type: "agent",
+    label: "Agent",
+    description: "工作流内嵌 Agent",
+    icon: "Bot",
+    color: "text-violet-600",
+    bgColor: "bg-violet-500",
+    category: "llm",
+    availableIn: ["workflow", "chatflow"],
   },
 ];
 

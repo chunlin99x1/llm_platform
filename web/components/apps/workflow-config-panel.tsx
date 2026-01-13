@@ -27,6 +27,12 @@ import { TemplateNodeConfig } from "./workflow/nodes/template-node-config";
 import { KnowledgeNodeConfig } from "./workflow/nodes/knowledge-node-config";
 import { ExtractorNodeConfig } from "./workflow/nodes/extractor-node-config";
 import { ClassifierNodeConfig } from "./workflow/nodes/classifier-node-config";
+// Phase 2/3 新增节点配置
+import { ToolNodeConfig } from "./workflow/nodes/tool-node-config";
+import { AgentNodeConfig } from "./workflow/nodes/agent-node-config";
+import { ListOperatorNodeConfig } from "./workflow/nodes/list-operator-node-config";
+import { DocumentExtractorNodeConfig } from "./workflow/nodes/document-extractor-node-config";
+import { QuestionClassifierNodeConfig } from "./workflow/nodes/question-classifier-node-config";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -230,6 +236,42 @@ export function WorkflowConfigPanel({
 
                         {selectedNode.type === "classifier" && (
                             <ClassifierNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                            />
+                        )}
+
+                        {/* Phase 2/3 新增节点 */}
+                        {selectedNode.type === "tool" && (
+                            <ToolNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                            />
+                        )}
+
+                        {selectedNode.type === "agent" && (
+                            <AgentNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                            />
+                        )}
+
+                        {selectedNode.type === "list-operator" && (
+                            <ListOperatorNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                            />
+                        )}
+
+                        {selectedNode.type === "document-extractor" && (
+                            <DocumentExtractorNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                            />
+                        )}
+
+                        {selectedNode.type === "question-classifier" && (
+                            <QuestionClassifierNodeConfig
                                 selectedNode={selectedNode}
                                 updateSelectedNode={updateSelectedNode}
                             />

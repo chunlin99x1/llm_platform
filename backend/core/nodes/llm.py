@@ -1,6 +1,7 @@
 """LLM 节点执行器"""
 
 from typing import Dict, Any, AsyncGenerator
+from core.variable_resolver import resolve_variables
 
 
 async def execute_llm_node(
@@ -15,7 +16,6 @@ async def execute_llm_node(
     from core.llm import create_llm_instance
     from langchain_core.messages import HumanMessage
 
-    # 从节点配置获取模型信息
     # 从节点配置获取模型信息
     model_config = node_data.get("modelConfig", {})
     provider = model_config.get("provider")
@@ -38,21 +38,13 @@ async def execute_llm_node(
         model=model,
         parameters=parameters
     )
-    prompt_template = node_data.get("prompt", "")
-
-    # 变量替换
-    prompt = prompt_template
-    for k, v in state["inputs"].items():
-        prompt = prompt.replace(f"{{{{{k}}}}}", str(v))
     
-    # 替换上游节点输出
-    for out_node_id, out_data in state["outputs"].items():
-        if isinstance(out_data, dict):
-            for out_key, out_val in out_data.items():
-                prompt = prompt.replace(f"{{{{{out_node_id}.{out_key}}}}}", str(out_val))
+    # 获取并解析 prompt
+    prompt_template = node_data.get("prompt", "")
+    prompt = resolve_variables(prompt_template, state)
 
     if not prompt:
-        prompt = state["inputs"].get("input", "")
+        prompt = state.get("inputs", {}).get("input", "")
 
     messages = [HumanMessage(content=prompt)]
     
@@ -68,3 +60,4 @@ async def execute_llm_node(
         "type": "result",
         "outputs": {node_id: {"text": full_response}}
     }
+

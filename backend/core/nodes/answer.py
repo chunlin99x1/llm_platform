@@ -8,8 +8,8 @@ Answer 节点与 End 节点的区别：
 Author: chunlin
 """
 
-import re
 from typing import Dict, Any, AsyncGenerator
+from core.variable_resolver import resolve_variables
 
 
 async def execute_answer_node(
@@ -29,8 +29,8 @@ async def execute_answer_node(
     answer_template = node_data.get("answer", "")
     
     if answer_template:
-        # 解析变量引用 {{node_id.output_name}}
-        final_answer = _resolve_variables(answer_template, state["outputs"])
+        # 使用统一变量解析器
+        final_answer = resolve_variables(answer_template, state)
     else:
         # 如果没有配置 answer，从上游节点获取输出
         final_answer = _get_upstream_output(node_id, state, edges)
@@ -53,28 +53,6 @@ async def execute_answer_node(
     }
 
 
-def _resolve_variables(template: str, outputs: Dict[str, Any]) -> str:
-    """解析变量引用 {{node_id.output_name}}"""
-    pattern = r'\{\{([^}]+)\}\}'
-    
-    def replace_var(match):
-        var_path = match.group(1).strip()
-        parts = var_path.split(".")
-        
-        if len(parts) >= 2:
-            node_id = parts[0]
-            output_key = ".".join(parts[1:])
-            
-            node_output = outputs.get(node_id, {})
-            if isinstance(node_output, dict):
-                return str(node_output.get(output_key, node_output.get("text", match.group(0))))
-            return str(node_output)
-        
-        return match.group(0)
-    
-    return re.sub(pattern, replace_var, template)
-
-
 def _get_upstream_output(node_id: str, state: Dict[str, Any], edges: list) -> str:
     """从上游节点获取输出"""
     incoming_edges = [e for e in edges if e["target"] == node_id]
@@ -94,3 +72,4 @@ def _get_upstream_output(node_id: str, state: Dict[str, Any], edges: list) -> st
         return str(last_output)
     
     return ""
+

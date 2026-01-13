@@ -98,6 +98,42 @@ NODE_TYPES = [
         color="#a855f7",
         description="使用 LLM 从文本中提取结构化参数"
     ),
+    # Phase 2 新增节点
+    NodeTypeInfo(
+        type="tool",
+        label="工具调用",
+        icon="wrench",
+        color="#10b981",
+        description="调用单个工具执行任务"
+    ),
+    NodeTypeInfo(
+        type="question-classifier",
+        label="问题分类",
+        icon="help-circle",
+        color="#f59e0b",
+        description="使用 LLM 对问题进行分类"
+    ),
+    NodeTypeInfo(
+        type="document-extractor",
+        label="文档提取",
+        icon="file-text",
+        color="#6366f1",
+        description="从文档中提取文本内容"
+    ),
+    NodeTypeInfo(
+        type="list-operator",
+        label="列表操作",
+        icon="list",
+        color="#06b6d4",
+        description="对列表进行过滤、排序、切片等操作"
+    ),
+    NodeTypeInfo(
+        type="agent",
+        label="Agent",
+        icon="bot",
+        color="#8b5cf6",
+        description="在工作流中嵌入 Agent 执行多轮工具调用"
+    ),
     NodeTypeInfo(
         type="end",
         label="结束",
@@ -109,9 +145,25 @@ NODE_TYPES = [
 
 
 @router.get("/nodes/types", response_model=NodeTypesResponse)
-async def get_node_types():
-    """获取所有支持的节点类型"""
-    return NodeTypesResponse(nodes=NODE_TYPES)
+async def get_node_types(app_mode: str = None):
+    """
+    获取所有支持的节点类型
+    
+    Args:
+        app_mode: 可选，应用模式 (workflow/chatflow/agent)，用于过滤节点
+    """
+    nodes = NODE_TYPES
+    
+    if app_mode:
+        # 根据模式过滤节点
+        if app_mode == "workflow":
+            # Workflow 模式排除 answer 节点
+            nodes = [n for n in nodes if n.type != "answer"]
+        elif app_mode in ("chatflow", "agent"):
+            # Chatflow/Agent 模式排除 end 节点
+            nodes = [n for n in nodes if n.type != "end"]
+    
+    return NodeTypesResponse(nodes=nodes)
 
 
 # ============== 工具配置 ==============

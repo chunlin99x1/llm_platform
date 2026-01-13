@@ -22,6 +22,9 @@ import {
     Variable,
 } from "lucide-react";
 
+// 导入 NodeList
+import { NodeList } from "./workflow/node-panel";
+
 interface ContextMenuPosition {
     x: number;
     y: number;
@@ -117,27 +120,7 @@ interface CanvasContextMenuProps {
     nodeTypes?: { type: string; label: string; icon: string; color: string }[];
 }
 
-// 默认节点类型（后端不可用时使用）
-const defaultNodeTypes = [
-    { type: "start", label: "开始节点", icon: "play", color: "text-success" },
-    { type: "llm", label: "LLM 节点", icon: "box", color: "text-primary" },
-    { type: "answer", label: "回答节点", icon: "message-square", color: "text-warning" },
-    { type: "condition", label: "条件分支", icon: "git-branch", color: "text-purple-500" },
-    { type: "code", label: "代码执行", icon: "code", color: "text-emerald-500" },
-    { type: "http", label: "HTTP 请求", icon: "globe", color: "text-blue-500" },
-    { type: "variable", label: "变量赋值", icon: "variable", color: "text-amber-500" },
-];
 
-// 图标映射
-const iconMap: Record<string, any> = {
-    play: Play,
-    box: Box,
-    "message-square": MessageSquare,
-    "git-branch": GitBranch,
-    code: Code,
-    globe: Globe,
-    variable: Variable,
-};
 
 export function CanvasContextMenu({
     isOpen,
@@ -146,8 +129,6 @@ export function CanvasContextMenu({
     onAddNode,
     nodeTypes,
 }: CanvasContextMenuProps) {
-    const types = nodeTypes || defaultNodeTypes;
-
     if (!isOpen) return null;
 
     return (
@@ -160,22 +141,13 @@ export function CanvasContextMenu({
                 <div className="px-3 py-1.5 text-[9px] font-bold text-foreground-400 uppercase tracking-wider">
                     添加节点
                 </div>
-                {types.map((node) => {
-                    const IconComponent = iconMap[node.icon] || Box;
-                    return (
-                        <button
-                            key={node.type}
-                            className="w-full px-3 py-2 text-left text-[11px] hover:bg-content2 flex items-center gap-2 transition-colors"
-                            onClick={() => {
-                                onAddNode(node.type, position);
-                                onClose();
-                            }}
-                        >
-                            <IconComponent size={12} className={node.color} />
-                            {node.label}
-                        </button>
-                    );
-                })}
+                <NodeList
+                    onAddNode={(type) => {
+                        // 使用当前点击位置 position
+                        onAddNode(type, position);
+                        onClose();
+                    }}
+                />
             </div>
         </div>
     );

@@ -2,6 +2,7 @@
 
 from typing import Dict, Any, AsyncGenerator
 import httpx
+from core.variable_resolver import resolve_variables
 
 
 async def execute_http_node(
@@ -13,21 +14,11 @@ async def execute_http_node(
     """
     执行 HTTP 请求节点。
     """
-    url = node_data.get("url", "")
+    # 使用统一变量解析器
+    url = resolve_variables(node_data.get("url", ""), state)
     method = node_data.get("method", "GET").upper()
     headers = node_data.get("headers", {})
-    body = node_data.get("body", "")
-    
-    # 变量替换
-    for k, v in state["inputs"].items():
-        url = url.replace(f"{{{{{k}}}}}", str(v))
-        body = body.replace(f"{{{{{k}}}}}", str(v))
-    
-    for out_node_id, out_data in state["outputs"].items():
-        if isinstance(out_data, dict):
-            for out_key, out_val in out_data.items():
-                url = url.replace(f"{{{{{out_node_id}.{out_key}}}}}", str(out_val))
-                body = body.replace(f"{{{{{out_node_id}.{out_key}}}}}", str(out_val))
+    body = resolve_variables(node_data.get("body", ""), state)
     
     async with httpx.AsyncClient(timeout=30) as client:
         if method == "GET":
@@ -52,3 +43,4 @@ async def execute_http_node(
         "type": "result",
         "outputs": {node_id: result}
     }
+
