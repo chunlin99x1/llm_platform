@@ -34,7 +34,7 @@ class WorkflowDef(Model):
     @property
     def is_chat_workflow(self) -> bool:
         """是否为对话型工作流（Chatflow）"""
-        return self.type == WorkflowType.CHAT.value
+        return self.type == WorkflowType.CHATFLOW.value
 
     @property
     def graph_dict(self) -> dict:

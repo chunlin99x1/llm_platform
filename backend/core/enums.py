@@ -28,17 +28,17 @@ class WorkflowType(StrEnum):
     """
     工作流类型枚举
     - WORKFLOW: 普通工作流（单次执行）
-    - CHAT: 对话型工作流（多轮对话）
+    - CHATFLOW: 对话型工作流（多轮对话）
     """
     WORKFLOW = "workflow"
-    CHAT = "chat"
+    CHATFLOW = "chatflow"
 
     @classmethod
     def from_app_mode(cls, app_mode: AppMode) -> "WorkflowType":
         """根据 AppMode 返回对应的 WorkflowType"""
         if app_mode == AppMode.WORKFLOW:
             return cls.WORKFLOW
-        return cls.CHAT
+        return cls.CHATFLOW
 
 
 class NodeType(StrEnum):
@@ -94,7 +94,7 @@ class NodeType(StrEnum):
     def get_available_nodes(cls, workflow_type: WorkflowType) -> list["NodeType"]:
         """根据工作流类型返回可用节点列表"""
         all_nodes = set(cls)
-        if workflow_type == WorkflowType.CHAT:
+        if workflow_type == WorkflowType.CHATFLOW:
             # Chatflow: 移除 END 节点
             return sorted(all_nodes - cls.get_workflow_only_nodes(), key=lambda x: x.value)
         else:

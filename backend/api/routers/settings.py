@@ -116,12 +116,26 @@ def verify_password(password: str, password_hash: str) -> bool:
 # ============== 模型提供商 API ==============
 
 @router.get("/model-providers", response_model=List[ModelProviderResponse])
-async def list_model_providers():
-    """获取所有模型提供商及其模型"""
+async def list_model_providers(model_type: str = None):
+    """
+    获取所有模型提供商及其模型
+    
+    Args:
+        model_type: 可选，按模型类型筛选 (llm, embedding, rerank, tts)
+    """
     providers = await ModelProvider.all().prefetch_related("models").order_by("name")
     
     results = []
     for p in providers:
+        # 筛选模型
+        filtered_models = p.models
+        if model_type:
+            filtered_models = [m for m in p.models if m.model_type == model_type]
+        
+        # 如果指定了 model_type 但该提供商没有匹配的模型，跳过
+        if model_type and not filtered_models:
+            continue
+        
         models = [
             ProviderModelResponse(
                 id=m.id,
@@ -131,7 +145,7 @@ async def list_model_providers():
                 enabled=m.enabled,
                 config=m.config,
                 created_at=m.created_at
-            ) for m in p.models
+            ) for m in filtered_models
         ]
         results.append(ModelProviderResponse(
             id=p.id,

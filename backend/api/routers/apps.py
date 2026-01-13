@@ -91,14 +91,20 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
     enabled_tools = payload.enabled_tools if payload.enabled_tools is not None else wf.graph.get("enabled_tools", [])
     mcp_servers = payload.mcp_servers if payload.mcp_servers is not None else wf.graph.get("mcp_servers", [])
 
+    # Get or create conversation
+    conversation = await ChatService.get_or_create_conversation(
+        app_id=app_id,
+        conversation_id=payload.session_id
+    )
+    conversation_id = str(conversation.id)
+    
     # Load chat history
-    session_id = payload.session_id or "preview_default"
-    history = await ChatService.load_chat_history(session_id)
+    history = await ChatService.load_conversation_history(conversation_id)
 
     async def stream_generator():
         """Generate SSE stream for chat response."""
         async for item in ChatService.process_agent_chat(
-            session_id=session_id,
+            conversation_id=conversation_id,
             user_input=payload.input,
             instructions=instructions,
             enabled_tools=enabled_tools,
@@ -109,8 +115,11 @@ async def app_chat(app_id: int, payload: AgentChatRequest):
             knowledge_base_ids=payload.knowledge_base_ids,
             knowledge_settings=payload.knowledge_settings
         ):
+            # 添加 conversation_id 到响应中
+            item["conversation_id"] = conversation_id
             yield f"data: {json.dumps(item, ensure_ascii=False)}\n\n"
         
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
+

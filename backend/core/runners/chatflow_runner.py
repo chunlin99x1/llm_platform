@@ -42,7 +42,7 @@ class ChatflowRunner(BaseWorkflowRunner):
 
     @property
     def workflow_type(self) -> WorkflowType:
-        return WorkflowType.CHAT
+        return WorkflowType.CHATFLOW
 
     def set_conversation_variables(self, variables: Dict[str, Any]) -> None:
         """设置会话变量"""

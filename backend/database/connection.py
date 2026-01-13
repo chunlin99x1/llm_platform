@@ -8,7 +8,6 @@ async def init_db():
     await Tortoise.init(
         db_url=settings.db_url,
         modules={"models": [
-            "database.models.agent",
             "database.models.app",
             "database.models.workflow",
             "database.models.chat",

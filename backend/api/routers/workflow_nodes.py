@@ -11,10 +11,6 @@ from fastapi import APIRouter
 from schemas import (
     NodeTypeInfo,
     NodeTypesResponse,
-    ModelInfo,
-    ModelsResponse,
-    ToolInfo,
-    ToolsResponse,
     VariableTypeInfo,
     VariableTypesResponse,
 )
@@ -118,56 +114,29 @@ async def get_node_types():
     return NodeTypesResponse(nodes=NODE_TYPES)
 
 
-# ============== 模型配置 ==============
-
-AVAILABLE_MODELS = [
-    ModelInfo(id="gpt-4o", name="GPT-4o", provider="openai", max_tokens=128000),
-    ModelInfo(id="gpt-4o-mini", name="GPT-4o Mini", provider="openai", max_tokens=128000),
-    ModelInfo(id="gpt-4-turbo", name="GPT-4 Turbo", provider="openai", max_tokens=128000),
-    ModelInfo(id="gpt-3.5-turbo", name="GPT-3.5 Turbo", provider="openai", max_tokens=16385),
-    ModelInfo(id="claude-3-5-sonnet", name="Claude 3.5 Sonnet", provider="anthropic", max_tokens=200000),
-    ModelInfo(id="claude-3-opus", name="Claude 3 Opus", provider="anthropic", max_tokens=200000),
-    ModelInfo(id="deepseek-chat", name="DeepSeek Chat", provider="deepseek", max_tokens=64000),
-    ModelInfo(id="deepseek-reasoner", name="DeepSeek Reasoner", provider="deepseek", max_tokens=64000),
-]
-
-
-@router.get("/models", response_model=ModelsResponse)
-async def get_models():
-    """获取可用的 LLM 模型列表"""
-    return ModelsResponse(models=AVAILABLE_MODELS)
-
-
 # ============== 工具配置 ==============
 
-AVAILABLE_TOOLS = [
-    ToolInfo(
-        name="web_search",
-        label="网络搜索",
-        description="搜索互联网获取最新信息"
-    ),
-    ToolInfo(
-        name="code_interpreter",
-        label="代码解释器",
-        description="执行 Python 代码并返回结果"
-    ),
-    ToolInfo(
-        name="file_reader",
-        label="文件读取",
-        description="读取上传文件的内容"
-    ),
-    ToolInfo(
-        name="image_generation",
-        label="图像生成",
-        description="根据描述生成图像"
-    ),
-]
+from core.tools.registry import BUILTIN_TOOLS
 
 
-@router.get("/tools", response_model=ToolsResponse)
+@router.get("/tools")
 async def get_tools():
-    """获取可用的工具列表"""
-    return ToolsResponse(tools=AVAILABLE_TOOLS)
+    """获取所有内置工具列表（分类格式）"""
+    return {
+        "categories": [
+            {
+                "category": cat_name,
+                "tools": [
+                    {
+                        "name": tool_name,
+                        "description": getattr(t, "description", "") or (t.__doc__ or "").strip()
+                    }
+                    for tool_name, t in cat_tools.items()
+                ]
+            }
+            for cat_name, cat_tools in BUILTIN_TOOLS.items()
+        ]
+    }
 
 
 # ============== 变量类型配置 ==============

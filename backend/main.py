@@ -2,8 +2,6 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 
-from api.routers.chat import router as chat_router
-from api.routers.agent import router as agent_router
 from api.routers.apps import router as apps_router
 from api.routers.health import router as health_router
 from api.routers.workflow import router as workflow_router
@@ -13,7 +11,7 @@ from api.routers.workflow_publish import router as workflow_publish_router
 from api.routers.knowledge import router as knowledge_router
 from api.routers.settings import router as settings_router
 from api.routers.mcp import router as mcp_router
-from database.connection import close_db, init_db,generate_schema
+from database.connection import close_db, init_db, generate_schema
 
 
 @asynccontextmanager
@@ -45,8 +43,6 @@ app.add_middleware(
 
 # Routers
 app.include_router(health_router)
-app.include_router(chat_router)
-app.include_router(agent_router)
 app.include_router(workflow_router)
 app.include_router(workflow_nodes_router)
 app.include_router(workflow_stream_router)
@@ -55,3 +51,5 @@ app.include_router(mcp_router)
 app.include_router(knowledge_router)
 app.include_router(apps_router)
 app.include_router(settings_router)
+
+

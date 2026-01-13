@@ -13,6 +13,7 @@ from tortoise.transactions import in_transaction
 
 from database.models import App, WorkflowDef
 from schemas import AppCreateRequest, AppResponse
+from core.enums import WorkflowType
 
 
 class AppService:
@@ -35,6 +36,27 @@ class AppService:
             "edges": [
                 {"id": "e1", "source": "start", "target": "llm"},
                 {"id": "e2", "source": "llm", "target": "end"},
+            ],
+            "viewport": {"x": 0, "y": 0, "zoom": 1},
+        }
+
+    @staticmethod
+    def _default_chatflow_graph() -> dict:
+        """Generate default chatflow graph structure (uses Answer instead of End)."""
+        return {
+            "nodes": [
+                {"id": "start", "type": "start", "position": {"x": 120, "y": 80}, "data": {"label": "开始"}},
+                {
+                    "id": "llm",
+                    "type": "llm",
+                    "position": {"x": 120, "y": 220},
+                    "data": {"label": "LLM", "prompt": "请根据用户输入生成回答。"},
+                },
+                {"id": "answer", "type": "answer", "position": {"x": 120, "y": 360}, "data": {"label": "回复"}},
+            ],
+            "edges": [
+                {"id": "e1", "source": "start", "target": "llm"},
+                {"id": "e2", "source": "llm", "target": "answer"},
             ],
             "viewport": {"x": 0, "y": 0, "zoom": 1},
         }
@@ -64,12 +86,18 @@ class AppService:
         async with in_transaction():
             app = await App.create(name=payload.name, mode=payload.mode)
 
-            default_graph = (
-                AppService._default_agent_config() 
-                if app.mode == "agent" 
-                else AppService._default_workflow_graph()
-            )
-            await WorkflowDef.create(app=app, graph=default_graph)
+            # 根据 mode 确定 workflow type 和默认图
+            if app.mode == "agent":
+                default_graph = AppService._default_agent_config()
+                wf_type = WorkflowType.WORKFLOW.value  # Agent 使用 workflow 类型
+            elif app.mode == "chatflow":
+                default_graph = AppService._default_chatflow_graph()
+                wf_type = WorkflowType.CHATFLOW.value  # Chatflow 使用 chatflow 类型
+            else:
+                default_graph = AppService._default_workflow_graph()
+                wf_type = WorkflowType.WORKFLOW.value  # Workflow 使用 workflow 类型
+
+            await WorkflowDef.create(app=app, graph=default_graph, type=wf_type)
 
         return AppResponse(id=app.id, name=app.name, mode=app.mode)
 

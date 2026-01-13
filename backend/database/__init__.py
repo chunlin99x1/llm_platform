@@ -6,24 +6,23 @@
 
 from .connection import init_db, close_db
 from .models import (
-    Agent, AgentSession, AgentMessage,
     App, WorkflowDef, WorkflowRun, NodeRun,
-    ChatMessage,
+    Conversation, Message,
     KnowledgeBase, Document, DocumentSegment,
 )
 
 __all__ = [
     "init_db",
     "close_db",
-    "Agent",
-    "AgentSession", 
-    "AgentMessage",
     "App",
     "WorkflowDef",
     "WorkflowRun",
     "NodeRun",
-    "ChatMessage",
+    "Conversation",
+    "Message",
     "KnowledgeBase",
     "Document",
     "DocumentSegment",
 ]
+
+
