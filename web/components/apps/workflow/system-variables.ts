@@ -6,7 +6,8 @@
 
 "use client";
 
-import type { VarType } from "./workflow-types";
+import type { VarType } from "../workflow-types";
+
 
 // ============== 系统变量定义 ==============
 

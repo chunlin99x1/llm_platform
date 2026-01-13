@@ -11,7 +11,8 @@ import { ChevronDown, Variable, MessageSquare } from "lucide-react";
 import { Button, Popover, PopoverTrigger, PopoverContent } from "@heroui/react";
 import { useWorkflowContext, ShowIfChatflow } from "@/context/workflow-context";
 import { getSystemVariables, type ConversationVariable } from "./system-variables";
-import type { NodeVariable, Variable as VarType } from "../workflow-types";
+import type { NodeVariable, Variable as VarDef } from "../workflow-types";
+
 
 // ============== 变量选择器 Props ==============
 

@@ -5,6 +5,7 @@ import { useState, useCallback } from "react";
 import "reactflow/dist/style.css";
 
 import { updateWorkflow } from "@/lib/api";
+import type { AppMode } from "@/lib/types";
 
 // Import extracted components and hooks
 import { AgentConfigPanel } from "./agent-config-panel";
@@ -15,9 +16,13 @@ import { WorkflowPreview } from "./workflow-preview";
 import { useWorkflowShortcuts } from "./workflow-history";
 import { OrchestrateHeader } from "./orchestrate-header";
 
+// 导入 WorkflowProvider 用于差异化渲染
+import { WorkflowProvider } from "@/context/workflow-context";
+
 import { useOrchestrateData } from "@/hooks/use-orchestrate-data";
 import { useWorkflowGraph } from "@/hooks/use-workflow-graph";
 import { useWorkflowRun } from "@/hooks/use-workflow-run";
+
 
 export default function OrchestratePage({ appId }: { appId: number }) {
   const [activeTab, setActiveTab] = useState("orchestrate");
@@ -44,7 +49,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     knowledgeBases,
     previewSessionId,
     agentState
-  } = useOrchestrateData({ appId, setNodes, setEdges, setSelectedId });
+  } = useOrchestrateData({ appId, setNodes: setNodes as any, setEdges: setEdges as any, setSelectedId });
 
   // 3. Execution Logic
   const {
@@ -58,7 +63,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   } = useWorkflowRun({
     appId,
     app,
-    nodes,
+    nodes: nodes as any,
     edges,
     instructions: agentState.instructions,
     enabledTools: agentState.enabledTools,
@@ -129,8 +134,8 @@ export default function OrchestratePage({ appId }: { appId: number }) {
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
       <OrchestrateHeader
+        app={app}
         appId={appId}
-        isAgent={isAgent}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         saving={saving}
@@ -173,43 +178,39 @@ export default function OrchestratePage({ appId }: { appId: number }) {
               />
             </div>
           ) : (
-            /* Workflow Graph View */
-            <div className="flex h-full">
-              <WorkflowCanvas
-                nodes={nodes}
-                edges={edges}
-                onNodesChange={onNodesChange}
-                onEdgesChange={onEdgesChange}
-                onConnect={onConnect}
-                setSelectedId={setSelectedId}
-                addNode={addNode}
-                onCopyNode={handleCopy}
-                onDeleteNode={(id) => {
-                  handleDelete(); // use hook's handleDelete logic but might need ID param if canvas passes it
-                  // Actually WorkflowCanvas onDeleteNode passes ID, but handleDelete logic uses selectedId
-                  // Compatibility check: Canvas might select node before delete?
-                  // Let's stick closely to original: setNodes filter out ID.
-                  // The hook's handleDelete relies on selectedId. 
-                  // Canvas calls onDeleteNode(id). 
-                  // Best compatibility: manually filter here or update hook to accept optional ID.
-                  // For now, inline filter is safer as per previous implementation.
-                  setNodes((nds) => nds.filter((n) => n.id !== id));
-                  setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
-                  if (selectedId === id) setSelectedId("");
-                }}
-                nodeRunStatus={nodeRunStatus}
-              />
-              <WorkflowConfigPanel
-                selectedNode={selectedNode}
-                updateSelectedNode={updateSelectedNode}
-                nodes={nodes}
-                edges={edges}
-                setNodes={setNodes}
-                setEdges={setEdges}
-                selectedId={selectedId}
-              />
-            </div>
+            /* Workflow/Chatflow Graph View - 使用 WorkflowProvider 提供模式上下文 */
+            <WorkflowProvider appMode={(app?.mode || "workflow") as AppMode}>
+              <div className="flex h-full">
+                <WorkflowCanvas
+                  nodes={nodes}
+                  edges={edges}
+                  onNodesChange={onNodesChange}
+                  onEdgesChange={onEdgesChange}
+                  onConnect={onConnect}
+                  setSelectedId={setSelectedId}
+                  addNode={addNode}
+                  onCopyNode={handleCopy}
+                  onDeleteNode={(id) => {
+                    handleDelete();
+                    setNodes((nds) => nds.filter((n) => n.id !== id));
+                    setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
+                    if (selectedId === id) setSelectedId("");
+                  }}
+                  nodeRunStatus={nodeRunStatus}
+                />
+                <WorkflowConfigPanel
+                  selectedNode={selectedNode}
+                  updateSelectedNode={updateSelectedNode}
+                  nodes={nodes}
+                  edges={edges}
+                  setNodes={setNodes}
+                  setEdges={setEdges}
+                  selectedId={selectedId}
+                />
+              </div>
+            </WorkflowProvider>
           )
+
         ) : activeTab === "preview" ? (
           <WorkflowPreview
             runOutput={runOutput}

@@ -121,7 +121,7 @@ export function useKnowledgeBases() {
  * 获取工具列表
  */
 export function useTools() {
-    return useFetch<{ categories: any[] }>('/tools', {
+    return useFetch<{ categories: any[] }>('/agents/tools', {
         cacheKey: 'tools',
         cacheTTL: 5 * 60 * 1000,
     });

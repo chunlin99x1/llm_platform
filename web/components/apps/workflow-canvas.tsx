@@ -36,6 +36,9 @@ import { nodeTypes } from "./node-components";
 import CustomEdge from "./custom-edge";
 import { NodeContextMenu, CanvasContextMenu, useContextMenu } from "./workflow-contextmenu";
 import { useConnectionValidation } from "./workflow-utils";
+// 导入配置驱动节点面板
+import { NodePanel } from "./workflow/node-panel";
+
 
 const edgeTypes = {
     custom: CustomEdge,
@@ -83,19 +86,10 @@ export function WorkflowCanvas({
         vertical: null,
     });
 
-    // 节点类型列表（从后端获取）
-    const [nodeTypesData, setNodeTypesData] = useState<{ type: string; label: string; icon: string; color: string }[]>([]);
+    // 节点类型列表已改为使用配置驱动的 NodePanel 组件
+    // 不再需要从后端获取节点类型
 
-    // 从后端获取节点类型
-    useEffect(() => {
-        fetch('/api/workflow/nodes/types')
-            .then(res => res.json())
-            .then(data => setNodeTypesData(data.nodes || []))
-            .catch(() => {
-                // 失败时使用默认值
-                console.warn('Failed to fetch node types from backend');
-            });
-    }, []);
+
 
     // 将运行状态注入到节点 data 中
     const nodesWithStatus = nodes.map(node => ({
@@ -215,7 +209,7 @@ export function WorkflowCanvas({
                 isOpen={canvasMenu.isOpen}
                 position={canvasMenu.position}
                 onClose={closeMenus}
-                nodeTypes={nodeTypesData.length > 0 ? nodeTypesData : undefined}
+                nodeTypes={undefined}
                 onAddNode={(type, screenPos) => {
                     // 屏幕坐标转换为画布坐标
                     if (reactFlowInstance.current) {
@@ -280,130 +274,11 @@ export function WorkflowCanvas({
                 </Tooltip>
             </div>
 
-            {/* Dify-style Block Selector */}
+            {/* 配置驱动节点面板 - 根据应用模式自动过滤节点 */}
             <div className="absolute left-4 top-4">
-                <div className="bg-white rounded-xl shadow-lg border border-gray-100 overflow-hidden w-[220px]">
-                    {/* Header */}
-                    <div className="px-3 py-2 border-b border-gray-100 bg-gray-50/50">
-                        <span className="text-[11px] font-semibold text-gray-600">添加节点</span>
-                    </div>
-
-                    {/* Scrollable Content */}
-                    <div className="p-2 max-h-[400px] overflow-y-auto space-y-3">
-                        {/* 基础 */}
-                        <div>
-                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                                基础
-                            </div>
-                            <div className="space-y-0.5">
-                                {[
-                                    { type: "start", label: "开始", desc: "工作流入口", color: "bg-blue-500" },
-                                    { type: "llm", label: "LLM", desc: "调用大语言模型", color: "bg-indigo-500" },
-                                    { type: "answer", label: "直接回复", desc: "输出结果给用户", color: "bg-orange-500" },
-                                    { type: "end", label: "结束", desc: "工作流结束", color: "bg-orange-500" },
-                                ].map((item) => (
-                                    <button
-                                        key={item.type}
-                                        onClick={() => addNode(item.type)}
-                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
-                                    >
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
-                                            <Play size={10} className="text-white" />
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
-                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* 逻辑 */}
-                        <div>
-                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                                逻辑
-                            </div>
-                            <div className="space-y-0.5">
-                                {[
-                                    { type: "condition", label: "条件分支", desc: "IF/ELSE 逻辑", color: "bg-cyan-500", icon: GitBranch },
-                                    { type: "iteration", label: "迭代", desc: "循环处理列表", color: "bg-cyan-500", icon: Repeat },
-                                    { type: "variable", label: "变量赋值", desc: "设置变量值", color: "bg-blue-500", icon: Variable },
-                                ].map((item) => (
-                                    <button
-                                        key={item.type}
-                                        onClick={() => addNode(item.type)}
-                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
-                                    >
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
-                                            <item.icon size={10} className="text-white" />
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
-                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* 转换 */}
-                        <div>
-                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                                转换
-                            </div>
-                            <div className="space-y-0.5">
-                                {[
-                                    { type: "code", label: "代码执行", desc: "运行 Python/JS", color: "bg-blue-600", icon: Code },
-                                    { type: "template", label: "模板转换", desc: "Jinja2 模板", color: "bg-blue-500", icon: FileCode },
-                                    { type: "http", label: "HTTP 请求", desc: "调用外部 API", color: "bg-violet-500", icon: Globe },
-                                ].map((item) => (
-                                    <button
-                                        key={item.type}
-                                        onClick={() => addNode(item.type)}
-                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
-                                    >
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
-                                            <item.icon size={10} className="text-white" />
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
-                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* 知识 */}
-                        <div>
-                            <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5 px-1">
-                                知识
-                            </div>
-                            <div className="space-y-0.5">
-                                {[
-                                    { type: "knowledge", label: "知识检索", desc: "从知识库检索", color: "bg-green-500", icon: Database },
-                                    { type: "classifier", label: "问题分类", desc: "对问题分类", color: "bg-green-500", icon: HelpCircle },
-                                ].map((item) => (
-                                    <button
-                                        key={item.type}
-                                        onClick={() => addNode(item.type)}
-                                        className="w-full flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-gray-50 transition-colors group"
-                                    >
-                                        <div className={`w-5 h-5 rounded-md flex items-center justify-center ${item.color} shadow-sm`}>
-                                            <item.icon size={10} className="text-white" />
-                                        </div>
-                                        <div className="flex-1 text-left">
-                                            <div className="text-[11px] font-medium text-gray-700 group-hover:text-gray-900">{item.label}</div>
-                                            <div className="text-[9px] text-gray-400 leading-tight">{item.desc}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <NodePanel onAddNode={addNode} />
             </div>
         </div>
     );
 }
+

@@ -18,9 +18,11 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 
+import { type AppItem } from "@/lib/types";
+
 interface OrchestrateHeaderProps {
+    app: AppItem | null;
     appId: number;
-    isAgent: boolean;
     activeTab: string;
     setActiveTab: (key: string) => void;
     saving: boolean;
@@ -28,8 +30,8 @@ interface OrchestrateHeaderProps {
 }
 
 export const OrchestrateHeader = memo(function OrchestrateHeader({
+    app,
     appId,
-    isAgent,
     activeTab,
     setActiveTab,
     saving,
@@ -42,14 +44,22 @@ export const OrchestrateHeader = memo(function OrchestrateHeader({
                     <ChevronLeft size={16} />
                 </Button>
 
-                <div className="flex flex-col">
-                    <Breadcrumbs size="sm" underline="hover" classNames={{ list: "gap-1" }}>
-                        <BreadcrumbItem classNames={{ item: "text-[11px]" }}>Apps</BreadcrumbItem>
-                        <BreadcrumbItem classNames={{ item: "text-[11px] font-bold text-foreground" }}>
-                            {isAgent ? "Agent" : "Workflow"} #{appId}
-                        </BreadcrumbItem>
-                    </Breadcrumbs>
-                </div>
+                {app && (
+                    <div className="flex items-center gap-3">
+                        <div className={`flex items-center justify-center w-8 h-8 rounded-lg ${app.icon_background || "bg-primary/10"}`}>
+                            <div className="text-xl">{app.icon || "🤖"}</div>
+                        </div>
+                        <div className="flex flex-col">
+                            <div className="text-[10px] text-foreground-500 font-medium leading-none mb-0.5 uppercase tracking-wider">
+                                {app.mode === "agent" ? "Agent" : (app.mode === "chatflow" ? "Chatflow" : "Workflow")}
+                            </div>
+                            <div className="text-[13px] font-bold text-foreground leading-none">
+                                {app.name}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
 
                 <Divider orientation="vertical" className="h-4 mx-1" />
 

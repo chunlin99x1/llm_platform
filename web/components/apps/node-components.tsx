@@ -136,7 +136,15 @@ function BaseNode({ title, icon: Icon, children, colorClass, bgClass, selected, 
 }
 
 
+// 引入 WorkflowContext
+import { useWorkflowContext } from "@/context/workflow-context";
+import { getSystemVariables } from "./workflow/system-variables";
+
 export function StartNode({ data, selected }: { data: any, selected: boolean }) {
+    const { isChatflow } = useWorkflowContext();
+    // 获取当前模式下的系统变量
+    const sysVars = getSystemVariables(isChatflow);
+
     return (
         <BaseNode
             title="开始"
@@ -151,8 +159,11 @@ export function StartNode({ data, selected }: { data: any, selected: boolean }) 
             <div className="text-[11px] text-gray-500">
                 <span className="text-gray-400 block mb-1.5 text-[10px] font-medium uppercase tracking-wider">系统变量</span>
                 <div className="flex flex-wrap gap-1.5">
-                    <span className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white border border-gray-200 text-gray-600">sys.query</span>
-                    <span className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white border border-gray-200 text-gray-600">sys.files</span>
+                    {sysVars.map(v => (
+                        <span key={v.key} className="inline-flex items-center h-5 px-1.5 rounded text-[10px] font-mono font-medium bg-white border border-gray-200 text-gray-600">
+                            {v.key}
+                        </span>
+                    ))}
                 </div>
             </div>
         </BaseNode>

@@ -8,8 +8,10 @@ import {
     Trash2,
     Variable
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { VariableModal } from "../modals/variable-modal";
+import { useWorkflowContext } from "@/context/workflow-context";
+import { getSystemVariables } from "../system-variables";
 
 export function StartNodeConfig({
     selectedNode,
@@ -18,6 +20,9 @@ export function StartNodeConfig({
     selectedNode: any;
     updateSelectedNode: (patch: Record<string, any>) => void;
 }) {
+    const { isChatflow } = useWorkflowContext();
+    const sysVars = useMemo(() => getSystemVariables(isChatflow), [isChatflow]);
+
     const [isVarModalOpen, setIsVarModalOpen] = useState(false);
     const [editingVariable, setEditingVariable] = useState<any>(null);
     const [editingVariableIndex, setEditingVariableIndex] = useState(-1);
@@ -124,18 +129,13 @@ export function StartNodeConfig({
             {/* 分隔线 */}
             <div className="h-px bg-divider my-1" />
 
-            {/* 系统变量 - 保持现有样式但更紧凑 */}
+            {/* 系统变量 - 动态渲染 */}
             <div className="space-y-1">
                 <div className="text-[10px] font-medium text-foreground-400 mb-1 px-1">系统变量</div>
                 <div className="grid grid-cols-2 gap-2">
-                    {[
-                        { name: "sys.query", type: "String" },
-                        { name: "sys.files", type: "Array[File]" },
-                        { name: "sys.user_id", type: "String" },
-                        { name: "sys.conversation_id", type: "String" },
-                    ].map((v) => (
-                        <div key={v.name} className="flex h-7 items-center justify-between rounded border border-divider bg-content2/30 px-2">
-                            <span className="text-[10px] font-mono text-foreground-500 truncate">{v.name}</span>
+                    {sysVars.map((v) => (
+                        <div key={v.key} className="flex h-7 items-center justify-between rounded border border-divider bg-content2/30 px-2">
+                            <span className="text-[10px] font-mono text-foreground-500 truncate">{v.key}</span>
                             <span className="text-[9px] text-foreground-400">{v.type}</span>
                         </div>
                     ))}
