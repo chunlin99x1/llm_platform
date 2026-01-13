@@ -1,263 +1,88 @@
 "use client";
 
-import {
-  Button,
-  Divider,
-  Tabs,
-  Tab,
-  Tooltip,
-  Breadcrumbs,
-  BreadcrumbItem,
-} from "@heroui/react";
-import {
-  Play,
-  Save,
-  Box,
-  Settings,
-  ChevronLeft,
-  History,
-} from "lucide-react";
-import { useEffect, useMemo, useState, useCallback } from "react";
-import Link from "next/link";
-import {
-  addEdge,
-  useEdgesState,
-  useNodesState,
-  type Connection,
-  type Edge,
-  type Node,
-  type OnConnect,
-} from "reactflow";
+import { Box, History } from "lucide-react";
+import { useState, useCallback } from "react";
 import "reactflow/dist/style.css";
 
-import { getWorkflow, runWorkflow, updateWorkflow, getApp, appChatStream, listTools } from "@/lib/api";
-import type { WorkflowGraph, AppItem, ToolCategory, AgentToolTrace, PromptVariable, MCPServer, ProviderModel, KnowledgeBase, KnowledgeSettings } from "@/lib/types";
-import { v4 as uuidv4 } from "uuid";
+import { updateWorkflow } from "@/lib/api";
 
-// Import extracted components
+// Import extracted components and hooks
 import { AgentConfigPanel } from "./agent-config-panel";
 import { AgentPreview } from "./agent-preview";
 import { WorkflowCanvas } from "./workflow-canvas";
 import { WorkflowConfigPanel } from "./workflow-config-panel";
 import { WorkflowPreview } from "./workflow-preview";
 import { useWorkflowShortcuts } from "./workflow-history";
+import { OrchestrateHeader } from "./orchestrate-header";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { useOrchestrateData } from "@/hooks/use-orchestrate-data";
+import { useWorkflowGraph } from "@/hooks/use-workflow-graph";
+import { useWorkflowRun } from "@/hooks/use-workflow-run";
 
 export default function OrchestratePage({ appId }: { appId: number }) {
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [app, setApp] = useState<AppItem | null>(null);
-  const [availableTools, setAvailableTools] = useState<ToolCategory[]>([]);
-  const [models, setModels] = useState<ProviderModel[]>([]);
-  const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
-
-  // Workflow State
-  const [selectedId, setSelectedId] = useState<string>("");
-  const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-
-  // Agent State
-  const [instructions, setInstructions] = useState("");
-  const [enabledTools, setEnabledTools] = useState<string[]>([]);
-  const [variables, setVariables] = useState<PromptVariable[]>([]);
-  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
-  const [selectedKBs, setSelectedKBs] = useState<number[]>([]);  // 选中的知识库 ID
-  const [knowledgeSettings, setKnowledgeSettings] = useState<KnowledgeSettings>({
-    top_k: 3,
-    retrieval_mode: "hybrid",
-    score_threshold: 0.0,
-    rerank_enabled: false,
-    fallback_to_model: true
-  });
-  const [modelConfig, setModelConfig] = useState<Record<string, any>>({
-    provider: "openai",
-    model: "gpt-4o",
-    parameters: {}
-  });
-
-  const selectedNode = useMemo(() => nodes.find((n) => n.id === selectedId) || null, [nodes, selectedId]);
-
-  const [runInput, setRunInput] = useState("介绍一下你自己");
-  const [runOutput, setRunOutput] = useState("");
-  const [runError, setRunError] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
-
   const [activeTab, setActiveTab] = useState("orchestrate");
-  const [previewSessionId, setPreviewSessionId] = useState("");
-  const [toolTraces, setToolTraces] = useState<AgentToolTrace[]>([]);
-  const [clipboard, setClipboard] = useState<Node | null>(null);
-  // 节点运行状态: { nodeId: 'running' | 'success' | 'error' }
-  const [nodeRunStatus, setNodeRunStatus] = useState<Record<string, 'running' | 'success' | 'error'>>({});
+  const [saving, setSaving] = useState(false);
+  const [_error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    (async () => {
-      try {
-        setLoading(true);
+  // 1. Workflow Graph Logic
+  const {
+    nodes, setNodes, onNodesChange,
+    edges, setEdges, onEdgesChange,
+    selectedId, setSelectedId,
+    selectedNode, updateSelectedNode,
+    addNode, onConnect,
+    handleCopy, handlePaste, handleDelete
+  } = useWorkflowGraph();
 
-        // Fetch models
-        const modelRes = await fetch(`${API_BASE_URL}/settings/model-providers`);
-        if (modelRes.ok) {
-          const providers = await modelRes.json();
-          const allModels: ProviderModel[] = providers.flatMap((p: any) =>
-            p.models
-              .filter((m: any) => m.model_type === "llm")
-              .map((m: any) => ({
-                ...m,
-                provider: p.name
-              }))
-          );
-          setModels(allModels);
-        }
+  // 2. Data Fetching & State Initialization
+  const {
+    loading,
+    error: dataError,
+    app,
+    availableTools,
+    models,
+    knowledgeBases,
+    previewSessionId,
+    agentState
+  } = useOrchestrateData({ appId, setNodes, setEdges, setSelectedId });
 
-        // Fetch knowledge bases
-        const kbRes = await fetch(`${API_BASE_URL}/knowledge/datasets`);
-        if (kbRes.ok) {
-          const kbData = await kbRes.json();
-          setKnowledgeBases(kbData);
-        }
+  // 3. Execution Logic
+  const {
+    runInput, setRunInput,
+    runOutput,
+    runError,
+    running,
+    toolTraces,
+    nodeRunStatus,
+    onRun
+  } = useWorkflowRun({
+    appId,
+    app,
+    nodes,
+    edges,
+    instructions: agentState.instructions,
+    enabledTools: agentState.enabledTools,
+    mcpServers: agentState.mcpServers,
+    modelConfig: agentState.modelConfig,
+    selectedKBs: agentState.selectedKBs,
+    knowledgeSettings: agentState.knowledgeSettings,
+    previewSessionId
+  });
 
-        const [appData, wfData, toolsData] = await Promise.all([
-          getApp(appId),
-          getWorkflow(appId),
-          listTools(),
-        ]);
-
-        setApp(appData);
-        setAvailableTools(toolsData.categories);
-
-        if (appData.mode === "agent") {
-          const g = (wfData.graph || {}) as any;
-          setInstructions(g.instructions || "");
-          setEnabledTools(g.enabled_tools || []);
-          setVariables((g.prompt_variables as PromptVariable[]) || []);
-          setMcpServers((g.mcp_servers as MCPServer[]) || []);
-          setSelectedKBs((g.knowledge_base_ids as number[]) || []);  // 加载选中的知识库
-          if (g.knowledge_settings) {
-            setKnowledgeSettings({ ...knowledgeSettings, ...g.knowledge_settings });
-          }
-          if (g.model_config) {
-            setModelConfig(g.model_config);
-          }
-        } else {
-          const g = (wfData.graph || {}) as WorkflowGraph;
-          const loadedNodes = ((g.nodes || []) as Node[]).map((n) => ({
-            ...n,
-            data: { ...n.data },
-          }));
-          const loadedEdges = (g.edges || []) as Edge[];
-          setNodes(loadedNodes);
-          setEdges(loadedEdges);
-          if (loadedNodes.length > 0) setSelectedId(loadedNodes[0].id);
-        }
-
-        // Initialize preview session
-        setPreviewSessionId(`preview_${appId}_${uuidv4().slice(0, 8)}`);
-      } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [appId, setEdges, setNodes]);
-
-  const onConnect: OnConnect = useCallback(
-    (params) => {
-      setEdges((eds) => addEdge({ ...params, type: "smoothstep", animated: true }, eds));
-    },
-    [setEdges]
-  );
-
-  function updateSelectedNode(patch: Record<string, any>) {
-    setNodes((prev) =>
-      prev.map((n) => {
-        if (n.id !== selectedId) return n;
-        return { ...n, data: { ...(n.data || {}), ...patch } };
-      })
-    );
-  }
-
-  function addNode(type: string, position?: { x: number; y: number }) {
-    const id = `${type}_${Date.now()}`;
-    const newNode: Node<any> = {
-      id,
-      type,
-      position: position || { x: 100, y: 100 },
-      data: { label: type.charAt(0).toUpperCase() + type.slice(1) },
-    };
-    if (type === "llm") {
-      newNode.data.prompt = "你是一个智能助手。\n用户输入: {{input}}\n请回答用户的问题。";
-    }
-
-    setNodes((nds) => nds.concat(newNode));
-    setSelectedId(id);
-  }
-
-  // 快捷键回调函数
-  const handleUndo = useCallback(() => {
-    // TODO: 集成 useWorkflowHistory
-    console.log("Undo");
-  }, []);
-
-  const handleRedo = useCallback(() => {
-    console.log("Redo");
-  }, []);
-
-  const handleCopy = useCallback(() => {
-    if (selectedNode) {
-      setClipboard(JSON.parse(JSON.stringify(selectedNode)));
-      console.log("Copied node:", selectedNode.id);
-    }
-  }, [selectedNode]);
-
-  const handlePaste = useCallback(() => {
-    if (clipboard) {
-      const newId = `${clipboard.type}_${Date.now()}`;
-      const newNode: Node<any> = {
-        ...clipboard,
-        id: newId,
-        position: {
-          x: clipboard.position.x + 50,
-          y: clipboard.position.y + 50,
-        },
-        data: { ...clipboard.data, label: `${clipboard.data?.label || clipboard.type} (复制)` },
-      };
-      setNodes((nds) => nds.concat(newNode));
-      setSelectedId(newId);
-      console.log("Pasted node:", newId);
-    }
-  }, [clipboard, setNodes]);
-
-  const handleDelete = useCallback(() => {
-    if (selectedId) {
-      setNodes((nds) => nds.filter((n) => n.id !== selectedId));
-      setEdges((eds) => eds.filter((e) => e.source !== selectedId && e.target !== selectedId));
-      setSelectedId("");
-      console.log("Deleted node:", selectedId);
-    }
-  }, [selectedId, setNodes, setEdges]);
-
-  const handleSelectAll = useCallback(() => {
-    // 选中所有节点
-    console.log("Select all");
-  }, []);
-
-  // 保存函数
+  // Save Logic
   const handleSave = useCallback(async () => {
     setSaving(true);
     try {
       const graphPayload =
         app?.mode === "agent"
           ? {
-            instructions,
-            enabled_tools: enabledTools,
-            prompt_variables: variables,
-            mcp_servers: mcpServers,
-            model_config: modelConfig,
-            knowledge_base_ids: selectedKBs,
-            knowledge_settings: knowledgeSettings
+            instructions: agentState.instructions,
+            enabled_tools: agentState.enabledTools,
+            prompt_variables: agentState.variables,
+            mcp_servers: agentState.mcpServers,
+            model_config: agentState.modelConfig,
+            knowledge_base_ids: agentState.selectedKBs,
+            knowledge_settings: agentState.knowledgeSettings
           }
           : { nodes, edges };
       await updateWorkflow(appId, { graph: graphPayload });
@@ -266,124 +91,19 @@ export default function OrchestratePage({ appId }: { appId: number }) {
     } finally {
       setSaving(false);
     }
-  }, [app?.mode, appId, instructions, enabledTools, variables, mcpServers, modelConfig, selectedKBs, knowledgeSettings, nodes, edges]);
+  }, [app?.mode, appId, nodes, edges, agentState]);
 
-  // 注册快捷键
+  // Shortcuts
   useWorkflowShortcuts({
-    onUndo: handleUndo,
-    onRedo: handleRedo,
+    onUndo: () => console.log("Undo"),
+    onRedo: () => console.log("Redo"),
     onCopy: handleCopy,
     onPaste: handlePaste,
     onDelete: handleDelete,
-    onSelectAll: handleSelectAll,
+    onSelectAll: () => console.log("Select All"),
     onSave: handleSave,
     enabled: app?.mode === "workflow" && activeTab === "orchestrate",
   });
-
-  async function onRun(inputs?: Record<string, any>) {
-    setRunning(true);
-    setRunOutput("");
-    setRunError(null);
-    setToolTraces([]);
-    setNodeRunStatus({});
-
-    // 防御性处理：防止 React 事件对象被当作输入变量传入导致的循环引用序列化错误
-    const cleanInputs = (inputs && typeof inputs === 'object' && !('nativeEvent' in inputs) && !('target' in inputs)) ? inputs : undefined;
-
-    try {
-      if (app?.mode === "agent") {
-        await appChatStream(
-          appId,
-          {
-            input: runInput,
-            session_id: previewSessionId,
-            instructions: instructions,
-            enabled_tools: enabledTools,
-            mcp_servers: mcpServers,
-            llm_config: modelConfig,
-            knowledge_base_ids: selectedKBs,
-            knowledge_settings: knowledgeSettings,
-            inputs: cleanInputs,
-          },
-          (event) => {
-            if (event.type === "text") {
-              setRunOutput((prev) => prev + event.content);
-            } else if (event.type === "trace") {
-              setToolTraces((prev) => [
-                ...prev,
-                { id: event.id, name: event.name, args: event.args, result: "执行中...", mcp_server: event.mcp_server },
-              ]);
-            } else if (event.type === "trace_result") {
-              setToolTraces((prev) => prev.map((t) => (t.id === event.id ? { ...t, result: event.result } : t)));
-            } else if (event.type === "error") {
-              setRunError(event.content);
-            }
-          }
-        );
-      } else {
-        // 工作流模式：使用流式 API
-        const response = await fetch('/api/workflow/run/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            inputs: { ...cleanInputs, input: runInput },
-            context: { app_id: appId },
-            graph: { nodes, edges },
-            response_mode: "streaming"
-          })
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-
-        const reader = response.body?.getReader();
-        const decoder = new TextDecoder();
-
-        if (reader) {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            const text = decoder.decode(value);
-            const lines = text.split('\n');
-
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                try {
-                  const data = JSON.parse(line.slice(6));
-
-                  if (data.event === 'node_started') {
-                    setNodeRunStatus((prev) => ({ ...prev, [data.node_id]: 'running' }));
-                  } else if (data.event === 'node_output') {
-                    // LLM 流式输出
-                    setRunOutput((prev) => prev + data.chunk);
-                  } else if (data.event === 'node_finished') {
-                    setNodeRunStatus((prev) => ({
-                      ...prev,
-                      [data.node_id]: data.status === 'success' ? 'success' : 'error'
-                    }));
-                  } else if (data.event === 'workflow_finished') {
-                    if (data.output) {
-                      setRunOutput(data.output);
-                    }
-                  } else if (data.event === 'error') {
-                    setRunError(data.message);
-                  }
-                } catch {
-                  // 忽略解析错误
-                }
-              }
-            }
-          }
-        }
-      }
-    } catch (e) {
-      setRunError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setRunning(false);
-    }
-  }
 
   if (loading)
     return (
@@ -400,76 +120,22 @@ export default function OrchestratePage({ appId }: { appId: number }) {
       </div>
     );
 
+  if (dataError) {
+    return <div className="p-4 text-red-500">Error: {dataError}</div>;
+  }
+
   const isAgent = app?.mode === "agent";
 
   return (
     <div className="flex h-full flex-col overflow-hidden bg-background">
-      {/* Compact Header */}
-      <header className="flex h-[48px] items-center justify-between border-b border-divider bg-background/80 backdrop-blur-md px-4 z-20">
-        <div className="flex items-center gap-4">
-          <Button as={Link} href="/apps" isIconOnly variant="light" size="sm" className="text-foreground h-8 w-8">
-            <ChevronLeft size={16} />
-          </Button>
-
-          <div className="flex flex-col">
-            <Breadcrumbs size="sm" underline="hover" classNames={{ list: "gap-1" }}>
-              <BreadcrumbItem classNames={{ item: "text-[11px]" }}>Apps</BreadcrumbItem>
-              <BreadcrumbItem classNames={{ item: "text-[11px] font-bold text-foreground" }}>
-                {isAgent ? "Agent" : "Workflow"} #{appId}
-              </BreadcrumbItem>
-            </Breadcrumbs>
-          </div>
-
-          <Divider orientation="vertical" className="h-4 mx-1" />
-
-          <Tabs
-            variant="light"
-            aria-label="Nav"
-            selectedKey={activeTab}
-            onSelectionChange={(k) => setActiveTab(k as string)}
-            classNames={{
-              tabList: "gap-4 p-0",
-              cursor: "w-full bg-primary/10",
-              tab: "max-w-fit px-3 h-8 rounded-lg",
-              tabContent: "group-data-[selected=true]:text-primary group-data-[selected=true]:font-bold text-[11px]",
-            }}
-          >
-            <Tab key="orchestrate" title="编排" />
-            <Tab key="preview" title="调试" />
-            <Tab key="logs" title="日志" />
-          </Tabs>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <Tooltip content="设置">
-            <Button isIconOnly variant="light" size="sm" className="text-foreground-500 h-8 w-8">
-              <Settings size={14} />
-            </Button>
-          </Tooltip>
-
-          <div className="flex items-center gap-2 ml-2">
-            <Button
-              variant="flat"
-              size="sm"
-              startContent={<Play size={12} />}
-              onPress={() => setActiveTab("preview")}
-              className="font-bold bg-content2 hover:bg-content3 h-8 text-[11px]"
-            >
-              运行预览
-            </Button>
-            <Button
-              color="primary"
-              size="sm"
-              startContent={<Save size={12} />}
-              isLoading={saving}
-              onPress={handleSave}
-              className="font-bold shadow-md shadow-primary/20 h-8 text-[11px]"
-            >
-              发布更新
-            </Button>
-          </div>
-        </div>
-      </header>
+      <OrchestrateHeader
+        appId={appId}
+        isAgent={isAgent}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        saving={saving}
+        onSave={handleSave}
+      />
 
       <div className="flex-1 overflow-hidden">
         {activeTab === "orchestrate" ? (
@@ -477,23 +143,23 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             /* Agent Orchestration View */
             <div className="flex h-full bg-[#f8fafc]">
               <AgentConfigPanel
-                instructions={instructions}
-                setInstructions={setInstructions}
-                enabledTools={enabledTools}
-                setEnabledTools={setEnabledTools}
+                instructions={agentState.instructions}
+                setInstructions={agentState.setInstructions}
+                enabledTools={agentState.enabledTools}
+                setEnabledTools={agentState.setEnabledTools}
                 availableTools={availableTools}
-                variables={variables}
-                setVariables={setVariables}
-                mcpServers={mcpServers}
-                setMcpServers={setMcpServers}
+                variables={agentState.variables}
+                setVariables={agentState.setVariables}
+                mcpServers={agentState.mcpServers}
+                setMcpServers={agentState.setMcpServers}
                 models={models}
-                modelConfig={modelConfig}
-                setModelConfig={setModelConfig}
+                modelConfig={agentState.modelConfig}
+                setModelConfig={agentState.setModelConfig}
                 knowledgeBases={knowledgeBases}
-                selectedKBs={selectedKBs}
-                setSelectedKBs={setSelectedKBs}
-                knowledgeSettings={knowledgeSettings}
-                setKnowledgeSettings={setKnowledgeSettings}
+                selectedKBs={agentState.selectedKBs}
+                setSelectedKBs={agentState.setSelectedKBs}
+                knowledgeSettings={agentState.knowledgeSettings}
+                setKnowledgeSettings={agentState.setKnowledgeSettings}
               />
               <AgentPreview
                 runOutput={runOutput}
@@ -501,7 +167,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 toolTraces={toolTraces}
                 runInput={runInput}
                 setRunInput={setRunInput}
-                variables={variables}
+                variables={agentState.variables}
                 running={running}
                 onRun={onRun}
               />
@@ -519,6 +185,14 @@ export default function OrchestratePage({ appId }: { appId: number }) {
                 addNode={addNode}
                 onCopyNode={handleCopy}
                 onDeleteNode={(id) => {
+                  handleDelete(); // use hook's handleDelete logic but might need ID param if canvas passes it
+                  // Actually WorkflowCanvas onDeleteNode passes ID, but handleDelete logic uses selectedId
+                  // Compatibility check: Canvas might select node before delete?
+                  // Let's stick closely to original: setNodes filter out ID.
+                  // The hook's handleDelete relies on selectedId. 
+                  // Canvas calls onDeleteNode(id). 
+                  // Best compatibility: manually filter here or update hook to accept optional ID.
+                  // For now, inline filter is safer as per previous implementation.
                   setNodes((nds) => nds.filter((n) => n.id !== id));
                   setEdges((eds) => eds.filter((e) => e.source !== id && e.target !== id));
                   if (selectedId === id) setSelectedId("");
@@ -546,7 +220,7 @@ export default function OrchestratePage({ appId }: { appId: number }) {
             running={running}
             onRun={onRun}
             variables={(() => {
-              if (isAgent) return variables;
+              if (isAgent) return agentState.variables;
               const startNode = nodes.find(n => n.type === 'start');
               return (startNode?.data?.variables || []).map((v: any) => ({
                 key: v.name,

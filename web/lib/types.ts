@@ -72,7 +72,7 @@ export type MCPServer = {
   tools?: {
     name: string;
     description?: string;
-    input_schema: Record<string, any>;
+    input_schema: Record<string, unknown>;
   }[];
 };
 
@@ -81,7 +81,41 @@ export interface ProviderModel {
   id: string;
   name: string;
   provider: string;
-  config?: any;
+  config?: Record<string, unknown>;
+}
+
+// Workflow Node Types
+export interface WorkflowNodeData {
+  label?: string;
+  prompt?: string;
+  model?: string;
+  modelConfig?: {
+    provider: string;
+    model: string;
+    parameters?: Record<string, unknown>;
+  };
+  variables?: Array<{
+    name: string;
+    type: string;
+    required?: boolean;
+    defaultValue?: string;
+  }>;
+  [key: string]: unknown;
+}
+
+export interface WorkflowNode {
+  id: string;
+  type: string;
+  position: { x: number; y: number };
+  data: WorkflowNodeData;
+}
+
+export interface WorkflowEdge {
+  id: string;
+  source: string;
+  target: string;
+  type?: string;
+  animated?: boolean;
 }
 
 export interface KnowledgeBase {
@@ -114,7 +148,7 @@ export type AgentChatRequest = {
   instructions?: string;
   enabled_tools?: string[];
   mcp_servers?: MCPServer[];
-  llm_config?: Record<string, any>;
+  llm_config?: Record<string, unknown>;
   knowledge_base_ids?: number[];  // 关联的知识库 ID 列表
   knowledge_settings?: KnowledgeSettings;  // 知识库检索设置
   inputs?: Record<string, unknown>;
