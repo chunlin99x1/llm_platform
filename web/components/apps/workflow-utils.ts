@@ -78,7 +78,12 @@ export function validateConnection(
     }
 
     // 检查是否已存在相同连接
-    const existingEdge = edges.find(e => e.source === source && e.target === target);
+    const existingEdge = edges.find(e =>
+        e.source === source &&
+        e.target === target &&
+        (e.sourceHandle || null) === (connection.sourceHandle || null) &&
+        (e.targetHandle || null) === (connection.targetHandle || null)
+    );
     if (existingEdge) {
         return { isValid: false, message: "连接已存在" };
     }

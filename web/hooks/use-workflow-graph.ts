@@ -19,7 +19,7 @@ export function useWorkflowGraph() {
 
     const onConnect: OnConnect = useCallback(
         (params) => {
-            setEdges((eds) => addEdge({ ...params, type: "smoothstep", animated: true }, eds));
+            setEdges((eds) => addEdge({ ...params, type: "custom" }, eds));
         },
         [setEdges]
     );

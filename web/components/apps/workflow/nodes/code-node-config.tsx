@@ -1,17 +1,23 @@
+
+
 import {
     Dropdown,
     DropdownTrigger,
     DropdownMenu,
     DropdownItem,
     Button,
+    Input,
     Textarea
 } from "@heroui/react";
 import {
     Code,
-    Variable
+    Variable,
+    Plus,
+    X
 } from "lucide-react";
 import type { Node, Edge } from "reactflow";
 import { VariableSelector } from "../../workflow-variable-selector";
+import { useCallback } from "react";
 
 export function CodeNodeConfig({
     selectedNode,
@@ -24,54 +30,128 @@ export function CodeNodeConfig({
     nodes: Node[];
     edges: Edge[];
 }) {
+    const variables = selectedNode.data?.variables || [];
+
+    const handleAddVariable = useCallback(() => {
+        const newVars = [...variables, { name: "", value: "" }];
+        updateSelectedNode({ variables: newVars });
+    }, [variables, updateSelectedNode]);
+
+    const handleUpdateVariable = useCallback((index: number, field: string, value: string) => {
+        const newVars = [...variables];
+        newVars[index] = { ...newVars[index], [field]: value };
+        updateSelectedNode({ variables: newVars });
+    }, [variables, updateSelectedNode]);
+
+    const handleDeleteVariable = useCallback((index: number) => {
+        const newVars = variables.filter((_: any, i: number) => i !== index);
+        updateSelectedNode({ variables: newVars });
+    }, [variables, updateSelectedNode]);
+
     return (
-        <section className="flex flex-col gap-3">
+        <section className="flex flex-col gap-4">
+            {/* Header */}
             <div className="flex items-center justify-between px-1">
                 <div className="text-[10px] font-bold text-foreground-500 flex items-center gap-1.5 uppercase tracking-wide">
                     <Code size={10} />
-                    代码
+                    代码执行
                 </div>
-                <div className="flex items-center gap-1">
-                    <VariableSelector
-                        currentNodeId={selectedNode.id}
-                        nodes={nodes}
-                        edges={edges}
-                        onSelect={(varRef) => {
-                            const current = selectedNode.data?.code || "";
-                            updateSelectedNode({ code: current + varRef });
-                        }}
-                    />
-                    <Dropdown>
-                        <DropdownTrigger>
-                            <Button size="sm" variant="flat" className="h-6 text-[10px]">
-                                {selectedNode.data?.language || "Python"}
+                <Dropdown>
+                    <DropdownTrigger>
+                        <Button size="sm" variant="flat" className="h-6 text-[10px] font-mono">
+                            {selectedNode.data?.language || "Python"}
+                        </Button>
+                    </DropdownTrigger>
+                    <DropdownMenu
+                        aria-label="语言选择"
+                        onAction={(key) => updateSelectedNode({ language: key as string })}
+                    >
+                        <DropdownItem key="Python">Python 3</DropdownItem>
+                        <DropdownItem key="JavaScript">JavaScript</DropdownItem>
+                    </DropdownMenu>
+                </Dropdown>
+            </div>
+
+            {/* Input Variables */}
+            <div className="space-y-2">
+                <div className="flex items-center justify-between px-1">
+                    <div className="text-[10px] font-bold text-foreground-500">输入变量</div>
+                    <Button
+                        size="sm"
+                        variant="light"
+                        isIconOnly
+                        className="h-5 w-5 min-w-0"
+                        onClick={handleAddVariable}
+                    >
+                        <Plus size={12} />
+                    </Button>
+                </div>
+
+                <div className="space-y-2">
+                    {variables.map((v: any, index: number) => (
+                        <div key={index} className="flex gap-2 items-center">
+                            <Input
+                                size="sm"
+                                variant="bordered"
+                                placeholder="变量名"
+                                value={v.name}
+                                onValueChange={(val) => handleUpdateVariable(index, 'name', val)}
+                                classNames={{ input: "font-mono text-[10px]", inputWrapper: "h-8" }}
+                                className="w-1/3"
+                            />
+                            <div className="flex-1 relative">
+                                <VariableSelector
+                                    currentNodeId={selectedNode.id}
+                                    nodes={nodes}
+                                    edges={edges}
+                                    onSelect={(val) => handleUpdateVariable(index, 'value', val)}
+                                />
+                                <div className="absolute inset-y-0 left-0 right-0 flex items-center px-3 pointer-events-none">
+                                    <span className="text-[10px] font-mono text-foreground-600 truncate">
+                                        {v.value || "选择变量..."}
+                                    </span>
+                                </div>
+                            </div>
+                            <Button
+                                size="sm"
+                                variant="light"
+                                isIconOnly
+                                color="danger"
+                                className="h-8 w-8 min-w-0"
+                                onClick={() => handleDeleteVariable(index)}
+                            >
+                                <X size={12} />
                             </Button>
-                        </DropdownTrigger>
-                        <DropdownMenu
-                            aria-label="语言选择"
-                            onAction={(key) => updateSelectedNode({ language: key as string })}
-                        >
-                            <DropdownItem key="Python">Python</DropdownItem>
-                            <DropdownItem key="JavaScript">JavaScript</DropdownItem>
-                        </DropdownMenu>
-                    </Dropdown>
+                        </div>
+                    ))}
+                    {variables.length === 0 && (
+                        <div className="text-[10px] text-foreground-400 italic px-2">暂无输入变量</div>
+                    )}
                 </div>
             </div>
-            <Textarea
-                variant="bordered"
-                minRows={12}
-                placeholder="# 在此输入代码..."
-                value={selectedNode.data?.code || ""}
-                onValueChange={(v) => updateSelectedNode({ code: v })}
-                classNames={{
-                    input: "font-mono text-[11px] leading-relaxed text-white",
-                    inputWrapper: "bg-[#1e1e1e] p-2 border-default-200 hover:border-primary focus-within:border-primary !outline-none"
-                }}
-            />
-            <div className="p-3 bg-emerald-500/5 rounded-xl border border-emerald-500/10">
-                <div className="text-[10px] text-foreground-600 leading-tight">
-                    使用 <kbd className="bg-emerald-100 text-emerald-700 px-1 rounded">return</kbd> 返回结果。
-                    点击 <Variable size={10} className="inline text-primary" /> 插入上游变量。
+
+            {/* Code Editor */}
+            <div className="space-y-1">
+                <div className="text-[10px] font-bold text-foreground-500 px-1">代码内容</div>
+                <Textarea
+                    variant="bordered"
+                    minRows={15}
+                    placeholder="def main(inputs): ..."
+                    value={selectedNode.data?.code || ""}
+                    onValueChange={(v) => updateSelectedNode({ code: v })}
+                    classNames={{
+                        input: "font-mono text-[11px] leading-relaxed text-white",
+                        inputWrapper: "bg-[#1e1e1e] p-2 border-default-200 hover:border-primary focus-within:border-primary !outline-none"
+                    }}
+                />
+            </div>
+
+            <div className="p-3 bg-content2/50 rounded-xl border border-divider">
+                <div className="text-[10px] text-foreground-500 leading-relaxed">
+                    Python 函数定义：
+                    <pre className="mt-1 font-mono text-foreground-700 bg-content2 p-1.5 rounded select-all">
+                        {`def main(${variables.map((v: any) => v.name).join(", ") || "inputs"}):\n    return { "result": "hello" }`}
+                    </pre>
                 </div>
             </div>
         </section>

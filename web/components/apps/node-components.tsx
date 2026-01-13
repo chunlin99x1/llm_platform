@@ -229,6 +229,8 @@ export function AnswerNode({ data, selected }: { data: any, selected: boolean })
 }
 
 export function ConditionNode({ data, selected }: { data: any, selected: boolean }) {
+    const cases = data.cases || [];
+
     return (
         <BaseNode
             title={data.label || "条件分支"}
@@ -241,40 +243,77 @@ export function ConditionNode({ data, selected }: { data: any, selected: boolean
             onMenuClick={data.onShowMenu}
             hideHandles={true}
         >
-            <div className="space-y-2">
-                <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">IF</div>
-                <div className="font-mono text-[11px] text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-1 truncate">
-                    {data.condition || "condition..."}
+            <div className="space-y-2 mb-2">
+                <div className="text-[10px] text-gray-400">
+                    {cases.length > 0
+                        ? `${cases.length} 个分支`
+                        : (data.conditions?.length ? "已配置条件 (Binary)" : "请配置条件")
+                    }
                 </div>
             </div>
 
-            {/* 自定义 Handles */}
+            {/* Input Handle */}
             <Handle
                 type="target"
                 position={Position.Left}
-                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -ml-[6px] transition-transform hover:scale-125"
+                id="target"
+                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -ml-[6px]"
             />
-            {/* True Handle */}
-            <div className="absolute -right-[6px] top-10 flex items-center">
-                <span className="absolute right-4 text-[9px] font-bold text-gray-400 pointer-events-none">TRUE</span>
-                <Handle
-                    type="source"
-                    position={Position.Right}
-                    id="true"
-                    className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm transition-transform hover:scale-125"
-                    style={{ top: "auto" }}
-                />
-            </div>
-            {/* False Handle */}
-            <div className="absolute -right-[6px] top-[calc(100%-40px)] flex items-center">
-                <span className="absolute right-4 text-[9px] font-bold text-gray-400 pointer-events-none">FALSE</span>
-                <Handle
-                    type="source"
-                    position={Position.Right}
-                    id="false"
-                    className="!h-3 !w-3 !border-[3px] !border-white !bg-gray-400 !shadow-sm transition-transform hover:scale-125"
-                    style={{ top: "auto" }}
-                />
+
+            {/* Output Handles */}
+            <div className="absolute -right-[6px] top-[40px] flex flex-col gap-4 items-end">
+                {cases.length > 0 ? (
+                    /* 1. 多分支模式 */
+                    <>
+                        {cases.map((c: any, i: number) => (
+                            <div key={c.id} className="relative flex items-center h-4">
+                                <span className="absolute right-4 text-[9px] font-bold text-gray-500 whitespace-nowrap bg-white/80 px-1 rounded shadow-sm">
+                                    {c.name || `CASE ${i + 1}`}
+                                </span>
+                                <Handle
+                                    type="source"
+                                    position={Position.Right}
+                                    id={c.id}
+                                    className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] hover:!bg-[#155EEF] !shadow-sm"
+                                />
+                            </div>
+                        ))}
+                        {/* Else */}
+                        <div className="relative flex items-center h-4">
+                            <span className="absolute right-4 text-[9px] font-bold text-gray-400 whitespace-nowrap">ELSE</span>
+                            <Handle
+                                type="source"
+                                position={Position.Right}
+                                id="false"
+                                className="!h-3 !w-3 !border-[3px] !border-white !bg-gray-400 hover:!bg-gray-500"
+                            />
+                        </div>
+                    </>
+                ) : (
+                    /* 2. 旧版 Binary 模式 */
+                    <>
+                        {/* True */}
+                        <div className="relative flex items-center h-4">
+                            <span className="absolute right-4 text-[9px] font-bold text-emerald-600 bg-white/80 px-1 rounded">TRUE</span>
+                            <Handle
+                                type="source"
+                                position={Position.Right}
+                                id="true"
+                                className="!h-3 !w-3 !border-[3px] !border-white !bg-emerald-500 hover:!bg-emerald-600"
+                            />
+                        </div>
+                        {/* False */}
+                        <div className="relative flex items-center h-4">
+                            <span className="absolute right-4 text-[9px] font-bold text-gray-400">FALSE</span>
+                            <Handle
+                                type="source"
+                                position={Position.Right}
+                                id="false"
+                                className="!h-3 !w-3 !border-[3px] !border-white !bg-gray-400 hover:!bg-gray-500"
+                            />
+                        </div>
+                    </>
+                )}
             </div>
         </BaseNode>
     );

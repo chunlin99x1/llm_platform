@@ -113,12 +113,40 @@ class BaseWorkflowRunner(ABC):
         # 如果没有 start 节点，返回第一个节点
         return list(self.nodes.keys())[0] if self.nodes else None
     
+    
     def _find_next_nodes(self, current_node_id: str) -> list[str]:
-        """查找下一个节点"""
+        """
+        查找下一个节点
+        支持基于 sourceHandle 的条件路由
+        """
         next_nodes = []
+        
+        # 获取当前节点输出
+        node_output = self._state.outputs.get(current_node_id, {})
+        
+        # 确定选中的 Handle
+        selected_handle = None
+        if isinstance(node_output, dict):
+            # 1. 显式 branch_id (新版多分支)
+            if "branch_id" in node_output:
+                selected_handle = node_output["branch_id"]
+            # 2. 传统 True/False (旧版条件)
+            elif "result" in node_output:
+                selected_handle = "true" if node_output["result"] else "false"
+        
         for edge in self.edges:
             if edge.get("source") == current_node_id:
+                source_handle = edge.get("sourceHandle")
+                
+                # 如果节点输出了明确的分支决策 (Condition Node)
+                if selected_handle:
+                    # Edge 必须严格匹配该 Handle
+                    # 注意：如果 Edge 没有 Handle (None)，也不匹配 explicit handle (e.g. "case_1")
+                    if source_handle != selected_handle:
+                        continue
+                
                 next_nodes.append(edge.get("target"))
+        
         return next_nodes
     
     def _is_terminal_node(self, node_id: str) -> bool:

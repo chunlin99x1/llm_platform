@@ -114,13 +114,19 @@ class VariableResolver:
         - conversation.var_name -> 会话变量
         - node_id.output_key -> 节点输出
         - input_key -> 输入变量
+        - #node_id.output_key# -> Dify 前端格式 (需要去除 #)
         """
+        # remove wrapping # if present (Dify frontend format)
+        if var_path.startswith("#") and var_path.endswith("#"):
+            var_path = var_path[1:-1]
+
         # 1. 系统变量
         if var_path.startswith(SYS_PREFIX):
             key = var_path[len(SYS_PREFIX):]
             value = self.system_variables.get(key)
             if value is None:
-                print(f"[VariableResolver] WARN: System variable '{key}' not found. Available: {list(self.system_variables.keys())}")
+                # print(f"[VariableResolver] WARN: System variable '{key}' not found.")
+                pass
             return value
         
         # 2. 会话变量
@@ -135,10 +141,21 @@ class VariableResolver:
             
             node_output = self.outputs.get(node_id)
             if isinstance(node_output, dict):
+                # 支持嵌套字典解析
+                if "." in output_key:
+                     nested_parts = output_key.split(".")
+                     val = node_output
+                     for p in nested_parts:
+                         if isinstance(val, dict):
+                             val = val.get(p)
+                         else:
+                             val = None
+                             break
+                     return val
                 return node_output.get(output_key)
             return node_output
         
-        # 4. 输入变量
+        # 4. 输入变量 (Inputs/Global Variables)
         if var_path in self.inputs:
             return self.inputs[var_path]
         
