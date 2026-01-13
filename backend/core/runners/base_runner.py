@@ -24,12 +24,15 @@ class WorkflowState:
     outputs: Dict[str, Any] = field(default_factory=dict)
     temp_data: Dict[str, Any] = field(default_factory=dict)
     variables: Dict[str, Any] = field(default_factory=dict)
+    conversation_variables: Dict[str, Any] = field(default_factory=dict)
     
     # 系统变量
+    query: str = ""
     user_id: str = ""
     app_id: str = ""
     workflow_id: str = ""
     workflow_run_id: str = ""
+    conversation_id: str = ""
 
 
 @dataclass
@@ -97,9 +100,9 @@ class BaseWorkflowRunner(ABC):
         """初始化执行状态"""
         return WorkflowState(
             inputs=inputs,
-            outputs={},
             user_id=self.user_id,
             app_id=self.app_id,
+            workflow_id=self.app_id, # 默认 workflow_id = app_id
         )
     
     def _find_start_node(self) -> Optional[str]:
@@ -164,7 +167,17 @@ class BaseWorkflowRunner(ABC):
                     "inputs": state.inputs,
                     "outputs": state.outputs,
                     "temp_data": state.temp_data,
+                    "temp_data": state.temp_data,
                     "variables": state.variables,
+                    "conversation_variables": state.conversation_variables,
+                    "system_variables": {
+                        "user_id": state.user_id,
+                        "app_id": state.app_id,
+                        "query": state.query,
+                        "workflow_id": state.workflow_id,
+                        "workflow_run_id": state.workflow_run_id,
+                        "conversation_id": state.conversation_id,
+                    }
                 },
                 edges=self.edges
             ):

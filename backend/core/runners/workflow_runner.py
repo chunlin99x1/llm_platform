@@ -76,6 +76,8 @@ class WorkflowRunner(BaseWorkflowRunner):
                     triggered_from=kwargs.get("triggered_from", "app-run")
                 )
                 self._workflow_run_id = run.id
+                if self._state:
+                    self._state.workflow_run_id = str(run.id)
             except Exception as e:
                 logger.warning(f"Failed to create workflow run log: {e}")
 

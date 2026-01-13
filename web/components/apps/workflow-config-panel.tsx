@@ -33,6 +33,8 @@ import { AgentNodeConfig } from "./workflow/nodes/agent-node-config";
 import { ListOperatorNodeConfig } from "./workflow/nodes/list-operator-node-config";
 import { DocumentExtractorNodeConfig } from "./workflow/nodes/document-extractor-node-config";
 import { QuestionClassifierNodeConfig } from "./workflow/nodes/question-classifier-node-config";
+import { AnswerNodeConfig } from "./workflow/nodes/answer-node-config";
+import { EndNodeConfig } from "./workflow/nodes/end-node-config";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -274,6 +276,24 @@ export function WorkflowConfigPanel({
                             <QuestionClassifierNodeConfig
                                 selectedNode={selectedNode}
                                 updateSelectedNode={updateSelectedNode}
+                            />
+                        )}
+
+                        {(selectedNode.type === "answer") && (
+                            <AnswerNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                                nodes={nodes}
+                                edges={edges}
+                            />
+                        )}
+
+                        {(selectedNode.type === "end") && (
+                            <EndNodeConfig
+                                selectedNode={selectedNode}
+                                updateSelectedNode={updateSelectedNode}
+                                nodes={nodes}
+                                edges={edges}
                             />
                         )}
 

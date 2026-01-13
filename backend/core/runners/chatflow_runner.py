@@ -52,17 +52,16 @@ class ChatflowRunner(BaseWorkflowRunner):
         """初始化状态（包含 Chatflow 专属系统变量）"""
         state = super()._init_state(inputs)
 
-        # 添加 Chatflow 专属系统变量
-        state.variables = {
-            SystemVariableKey.QUERY.value: inputs.get("query", ""),
-            SystemVariableKey.CONVERSATION_ID.value: self.conversation_id,
-            SystemVariableKey.DIALOGUE_COUNT.value: self.dialogue_count,
-            SystemVariableKey.USER_ID.value: self.user_id,
-            SystemVariableKey.APP_ID.value: self.app_id,
-        }
-
-        # 合并会话变量
-        state.variables.update(self._conversation_variables)
+        # 设置系统变量字段
+        state.query = inputs.get("query", "")
+        state.conversation_id = self.conversation_id
+        state.user_id = self.user_id
+        state.app_id = self.app_id
+        
+        # 为了兼容性，inputs 中保留 query
+        
+        # 设置会话变量
+        state.conversation_variables = self._conversation_variables or {}
 
         return state
 

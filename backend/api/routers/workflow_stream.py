@@ -92,7 +92,17 @@ async def stream_workflow_execution(
             "messages": [],
             "inputs": initial_inputs,
             "outputs": {},
-            "temp_data": {}
+            "temp_data": {},
+            "variables": {}, # 临时变量
+            "conversation_variables": {}, # 会话变量
+            "system_variables": {
+                "user_id": context.get("user_id", ""),
+                "app_id": str(app_id),
+                "workflow_id": str(app_id),
+                "workflow_run_id": str(run.id),
+                "conversation_id": context.get("conversation_id", ""),
+                "query": initial_inputs.get("query", initial_inputs.get("input", "")), # title
+            }
         }
 
         # 逐个节点执行

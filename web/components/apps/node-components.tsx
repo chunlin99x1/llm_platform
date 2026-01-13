@@ -18,7 +18,12 @@ import {
     FileCode,
     Database,
     HelpCircle,
-    Search
+    Search,
+    Bot,
+    Wrench,
+    FileText,
+    List,
+    FileSearch,
 } from "lucide-react";
 import { cn } from "@heroui/react";
 
@@ -37,6 +42,7 @@ interface BaseNodeProps {
     executionTime?: number; // 毫秒
     headerRight?: React.ReactNode;
     onMenuClick?: (e: React.MouseEvent) => void;
+    hideHandles?: boolean; // 新增属性
 }
 
 function StatusIndicator({ status, executionTime }: { status: NodeStatus; executionTime?: number }) {
@@ -71,7 +77,7 @@ function StatusIndicator({ status, executionTime }: { status: NodeStatus; execut
     }
 }
 
-function BaseNode({ title, icon: Icon, children, colorClass, bgClass, selected, status = "idle", executionTime, headerRight, onMenuClick }: BaseNodeProps) {
+function BaseNode({ title, icon: Icon, children, colorClass, bgClass, selected, status = "idle", executionTime, headerRight, onMenuClick, hideHandles }: BaseNodeProps) {
     const isRunning = status === "running";
     const isError = status === "error";
 
@@ -121,16 +127,20 @@ function BaseNode({ title, icon: Icon, children, colorClass, bgClass, selected, 
             </div>
 
             {/* Handles */}
-            <Handle
-                type="target"
-                position={Position.Left}
-                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -ml-[6px] transition-transform hover:scale-125"
-            />
-            <Handle
-                type="source"
-                position={Position.Right}
-                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -mr-[6px] transition-transform hover:scale-125"
-            />
+            {!hideHandles && (
+                <>
+                    <Handle
+                        type="target"
+                        position={Position.Left}
+                        className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -ml-[6px] transition-transform hover:scale-125"
+                    />
+                    <Handle
+                        type="source"
+                        position={Position.Right}
+                        className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -mr-[6px] transition-transform hover:scale-125"
+                    />
+                </>
+            )}
         </div>
     );
 }
@@ -229,12 +239,42 @@ export function ConditionNode({ data, selected }: { data: any, selected: boolean
             status={data.status}
             executionTime={data.executionTime}
             onMenuClick={data.onShowMenu}
+            hideHandles={true}
         >
-            <div className="space-y-1">
+            <div className="space-y-2">
                 <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">IF</div>
                 <div className="font-mono text-[11px] text-gray-700 bg-white border border-gray-200 rounded px-1.5 py-1 truncate">
                     {data.condition || "condition..."}
                 </div>
+            </div>
+
+            {/* 自定义 Handles */}
+            <Handle
+                type="target"
+                position={Position.Left}
+                className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm -ml-[6px] transition-transform hover:scale-125"
+            />
+            {/* True Handle */}
+            <div className="absolute -right-[6px] top-10 flex items-center">
+                <span className="absolute right-4 text-[9px] font-bold text-gray-400 pointer-events-none">TRUE</span>
+                <Handle
+                    type="source"
+                    position={Position.Right}
+                    id="true"
+                    className="!h-3 !w-3 !border-[3px] !border-white !bg-[#155EEF] !shadow-sm transition-transform hover:scale-125"
+                    style={{ top: "auto" }}
+                />
+            </div>
+            {/* False Handle */}
+            <div className="absolute -right-[6px] top-[calc(100%-40px)] flex items-center">
+                <span className="absolute right-4 text-[9px] font-bold text-gray-400 pointer-events-none">FALSE</span>
+                <Handle
+                    type="source"
+                    position={Position.Right}
+                    id="false"
+                    className="!h-3 !w-3 !border-[3px] !border-white !bg-gray-400 !shadow-sm transition-transform hover:scale-125"
+                    style={{ top: "auto" }}
+                />
             </div>
         </BaseNode>
     );
@@ -426,11 +466,138 @@ export function ClassifierNode({ data, selected }: { data: any, selected: boolea
     );
 }
 
+export function ToolNode({ data, selected }: { data: any, selected: boolean }) {
+    return (
+        <BaseNode
+            title={data.label || "工具调用"}
+            icon={Wrench}
+            colorClass="text-white"
+            bgClass="bg-[#10b981]" // Emerald
+            selected={selected}
+            status={data.status}
+            executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
+        >
+            <div className="space-y-1">
+                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">Tool</div>
+                <div className="flex items-center gap-1.5 bg-white border border-gray-200 rounded p-1.5">
+                    <div className="text-[11px] font-medium text-gray-700 truncate">
+                        {data.tool_name || "选择工具..."}
+                    </div>
+                </div>
+            </div>
+        </BaseNode>
+    );
+}
+
+export function AgentNode({ data, selected }: { data: any, selected: boolean }) {
+    return (
+        <BaseNode
+            title={data.label || "Agent"}
+            icon={Bot}
+            colorClass="text-white"
+            bgClass="bg-[#8b5cf6]" // Violet
+            selected={selected}
+            status={data.status}
+            executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
+        >
+            <div className="text-[11px] text-gray-500 leading-relaxed">
+                <div className="flex items-center gap-1">
+                    <span className="text-xs">🤖</span>
+                    <span>{data.agent_mode || "Function Call"}</span>
+                </div>
+            </div>
+        </BaseNode>
+    );
+}
+
+export function QuestionClassifierNode({ data, selected }: { data: any, selected: boolean }) {
+    return (
+        <BaseNode
+            title={data.label || "问题分类"}
+            icon={HelpCircle}
+            colorClass="text-white"
+            bgClass="bg-[#f59e0b]" // Amber
+            selected={selected}
+            status={data.status}
+            executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
+        >
+            <div className="space-y-1.5 mt-0.5">
+                {(data.classes || []).slice(0, 2).map((cls: any, i: number) => (
+                    <div key={i} className="flex items-center gap-2">
+                        <div className={`w-1.5 h-1.5 rounded-full ${i === 0 ? 'bg-green-500' : 'bg-blue-500'} shadow-sm`} />
+                        <span className="text-[11px] text-gray-600 font-medium truncate">{cls.name || `Class ${i + 1}`}</span>
+                    </div>
+                ))}
+            </div>
+        </BaseNode>
+    );
+}
+
+export function ExtractorNode({ data, selected }: { data: any, selected: boolean }) {
+    return (
+        <BaseNode
+            title={data.label || "参数提取"}
+            icon={FileSearch}
+            colorClass="text-white"
+            bgClass="bg-[#a855f7]" // Purple
+            selected={selected}
+            status={data.status}
+            executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
+        >
+            <div className="text-[11px] text-gray-500">
+                提取结构化参数
+            </div>
+        </BaseNode>
+    );
+}
+
+export function DocumentExtractorNode({ data, selected }: { data: any, selected: boolean }) {
+    return (
+        <BaseNode
+            title={data.label || "文档提取"}
+            icon={FileText}
+            colorClass="text-white"
+            bgClass="bg-[#6366f1]" // Indigo
+            selected={selected}
+            status={data.status}
+            executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
+        >
+            <div className="text-[11px] text-gray-500">
+                从文档提取内容
+            </div>
+        </BaseNode>
+    );
+}
+
+export function ListOperatorNode({ data, selected }: { data: any, selected: boolean }) {
+    return (
+        <BaseNode
+            title={data.label || "列表操作"}
+            icon={List}
+            colorClass="text-white"
+            bgClass="bg-[#06b6d4]" // Cyan
+            selected={selected}
+            status={data.status}
+            executionTime={data.executionTime}
+            onMenuClick={data.onShowMenu}
+        >
+            <div className="text-[11px] text-gray-500">
+                <span className="font-mono text-[10px] bg-gray-100 px-1 rounded">{data.operator || "filter"}</span>
+            </div>
+        </BaseNode>
+    );
+}
+
 export const nodeTypes = {
     start: StartNode,
     llm: LLMNode,
     answer: AnswerNode,
-    end: AnswerNode,
+    end: AnswerNode, // End node uses Answer style currently? Or should have explicit EndNode? Reusing Answer is fine for now, or use red color. 
     condition: ConditionNode,
     code: CodeNode,
     http: HttpNode,
@@ -438,5 +605,12 @@ export const nodeTypes = {
     iteration: IterationNode,
     template: TemplateNode,
     knowledge: KnowledgeNode,
+    // Fix existing classifier key if needed, or alias it
     classifier: ClassifierNode,
+    "question-classifier": QuestionClassifierNode, // Match backend type
+    tool: ToolNode,
+    agent: AgentNode,
+    extractor: ExtractorNode,
+    "document-extractor": DocumentExtractorNode,
+    "list-operator": ListOperatorNode,
 };

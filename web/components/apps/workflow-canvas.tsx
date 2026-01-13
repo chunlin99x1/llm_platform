@@ -170,6 +170,12 @@ export function WorkflowCanvas({
                             iteration: '#06b6d4',
                             template: '#3b82f6',
                             end: '#ef4444',
+                            tool: '#10b981',
+                            agent: '#8b5cf6',
+                            'question-classifier': '#f59e0b',
+                            extractor: '#a855f7',
+                            'document-extractor': '#6366f1',
+                            'list-operator': '#06b6d4',
                         };
                         return colors[node.type || ''] || '#94a3b8';
                     }}

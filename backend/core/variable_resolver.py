@@ -118,7 +118,10 @@ class VariableResolver:
         # 1. 系统变量
         if var_path.startswith(SYS_PREFIX):
             key = var_path[len(SYS_PREFIX):]
-            return self.system_variables.get(key)
+            value = self.system_variables.get(key)
+            if value is None:
+                print(f"[VariableResolver] WARN: System variable '{key}' not found. Available: {list(self.system_variables.keys())}")
+            return value
         
         # 2. 会话变量
         if var_path.startswith(CONVERSATION_PREFIX):
@@ -172,6 +175,12 @@ def create_resolver_from_state(state: Dict[str, Any]) -> VariableResolver:
     Returns:
         VariableResolver 实例
     """
+    sys_vars = state.get("system_variables", {})
+    if not sys_vars:
+        print(f"[VariableResolver] WARN: No system_variables in state. keys={list(state.keys())}")
+    else:
+        print(f"[VariableResolver] INFO: system_variables keys: {list(sys_vars.keys())}")
+
     return VariableResolver(
         inputs=state.get("inputs", {}),
         outputs=state.get("outputs", {}),
