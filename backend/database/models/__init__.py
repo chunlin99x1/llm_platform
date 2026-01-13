@@ -6,7 +6,7 @@
 
 from .agent import Agent, AgentSession, AgentMessage
 from .app import App
-from .workflow import WorkflowDef, WorkflowRun, NodeRun
+from .workflow import WorkflowDef, WorkflowRun, NodeRun, ConversationVariable
 from .chat import ChatMessage
 from .knowledge import KnowledgeBase, Document, DocumentSegment
 from .settings import ModelProvider, ProviderModel, User
@@ -22,6 +22,7 @@ __all__ = [
     "WorkflowDef",
     "WorkflowRun",
     "NodeRun",
+    "ConversationVariable",
     # Chat
     "ChatMessage",
     # Knowledge

@@ -165,13 +165,21 @@ export type AppMode = "workflow" | "chatflow" | "agent";
 export type AppItem = {
   id: number;
   name: string;
-  mode: AppMode | string;
+  description?: string;
+  mode: AppMode;
+  icon?: string;
+  icon_background?: string;
+  published?: boolean;
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type AppCreateRequest = {
   name: string;
-  mode?: AppMode | string;
+  description?: string;
+  mode?: AppMode;
 };
+
 
 export type WorkflowGraph = {
   nodes?: unknown[];
