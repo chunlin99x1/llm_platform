@@ -6,7 +6,8 @@
 Author: chunlin
 """
 
-from fastapi import APIRouter
+from typing import Optional
+from fastapi import APIRouter, Query
 
 from schemas import (
     NodeTypeInfo,
@@ -145,7 +146,9 @@ NODE_TYPES = [
 
 
 @router.get("/nodes/types", response_model=NodeTypesResponse)
-async def get_node_types(app_mode: str = None):
+async def get_node_types(
+    app_mode: Optional[str] = Query(None, description="应用模式 (workflow/chatflow/agent)")
+):
     """
     获取所有支持的节点类型
     
@@ -155,13 +158,20 @@ async def get_node_types(app_mode: str = None):
     nodes = NODE_TYPES
     
     if app_mode:
+        mode = app_mode.lower().strip()
         # 根据模式过滤节点
-        if app_mode == "workflow":
+        if mode == "workflow":
             # Workflow 模式排除 answer 节点
+            # 同时保留 end 节点
             nodes = [n for n in nodes if n.type != "answer"]
-        elif app_mode in ("chatflow", "agent"):
+        elif mode in ("chatflow", "agent"):
             # Chatflow/Agent 模式排除 end 节点
+            # 同时保留 answer 节点 (Agent 也可能有 Answer)
             nodes = [n for n in nodes if n.type != "end"]
+            
+            # Agent 模式可能还需要排除其他节点？目前假设与其他一致
+            if mode == "agent":
+                pass
     
     return NodeTypesResponse(nodes=nodes)
 
