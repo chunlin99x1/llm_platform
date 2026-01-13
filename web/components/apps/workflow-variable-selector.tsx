@@ -22,6 +22,8 @@ import {
     Repeat,
     FileCode,
     HelpCircle,
+    Settings,
+    MessageSquare,
 } from "lucide-react";
 import type { Node, Edge } from "reactflow";
 import {
@@ -32,6 +34,8 @@ import {
     type Variable as VariableType,
     type VarType,
 } from "./workflow-types";
+import { useWorkflowContext } from "@/context/workflow-context";
+import { getSystemVariables } from "./workflow/system-variables";
 
 // 节点类型图标映射
 const NODE_TYPE_ICONS: Record<string, any> = {
@@ -45,6 +49,8 @@ const NODE_TYPE_ICONS: Record<string, any> = {
     template: FileCode,
     classifier: HelpCircle,
     variable: Variable,
+    system: Settings, // 系统变量图标
+    conversation: MessageSquare, // 会话变量图标
 };
 
 // 节点类型颜色映射
@@ -59,6 +65,8 @@ const NODE_TYPE_COLORS: Record<string, string> = {
     template: "bg-blue-500",
     classifier: "bg-green-500",
     variable: "bg-blue-500",
+    system: "bg-gray-500",
+    conversation: "bg-violet-500",
 };
 
 interface VariableSelectorProps {
@@ -80,28 +88,77 @@ export function VariableSelector({
     const [searchText, setSearchText] = useState("");
     const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
 
-    // 获取上游变量
+    const { isChatflow } = useWorkflowContext();
+
+    // 1. 获取上游变量
     const upstreamVariables = useMemo(() => {
         return getUpstreamVariables(currentNodeId, nodes, edges);
     }, [currentNodeId, nodes, edges]);
 
+    // 2. 获取系统变量
+    const systemVarsNode = useMemo((): NodeVariable | null => {
+        const vars = getSystemVariables(isChatflow);
+        if (vars.length === 0) return null;
+        return {
+            nodeId: "sys",
+            nodeName: "系统变量",
+            nodeType: "system",
+            variables: vars.map(v => ({
+                nodeId: "sys",
+                nodeName: "系统变量",
+                variableKey: v.key.replace("sys.", ""), // 移除前缀以便显示? 不，保持原样或者 key 是 full key
+                variableType: v.type,
+                description: v.description
+            }))
+        };
+    }, [isChatflow]);
+
+    // 3. 获取会话变量 (Chatflow 专属)
+    const conversationVarsNode = useMemo((): NodeVariable | null => {
+        if (!isChatflow) return null;
+        const startNode = nodes.find(n => n.type === 'start');
+        const vars: any[] = startNode?.data?.conversation_variables || [];
+        if (vars.length === 0) return null;
+
+        return {
+            nodeId: "conversation",
+            nodeName: "会话变量",
+            nodeType: "conversation",
+            variables: vars.map(v => ({
+                nodeId: "conversation",
+                nodeName: "会话变量",
+                variableKey: v.name,
+                variableType: v.type,
+                description: "会话持久化变量"
+            }))
+        };
+    }, [isChatflow, nodes]);
+
+    // 合并所有变量源
+    const allVariables = useMemo(() => {
+        const list: NodeVariable[] = [];
+        if (systemVarsNode) list.push(systemVarsNode);
+        if (conversationVarsNode) list.push(conversationVarsNode);
+        return [...list, ...upstreamVariables];
+    }, [systemVarsNode, conversationVarsNode, upstreamVariables]);
+
     // 过滤变量
     const filteredVariables = useMemo(() => {
-        if (!searchText) return upstreamVariables;
+        if (!searchText) return allVariables;
 
         const lowerSearch = searchText.toLowerCase();
-        return upstreamVariables
+        return allVariables
             .map(nodeVar => ({
                 ...nodeVar,
                 variables: nodeVar.variables.filter(
                     v =>
                         v.variableKey.toLowerCase().includes(lowerSearch) ||
-                        v.nodeName.toLowerCase().includes(lowerSearch) ||
+                        nodeVar.nodeName.toLowerCase().includes(lowerSearch) ||
                         (v.description && v.description.toLowerCase().includes(lowerSearch))
                 ),
             }))
             .filter(nodeVar => nodeVar.variables.length > 0);
-    }, [upstreamVariables, searchText]);
+    }, [allVariables, searchText]);
 
     const toggleNode = (nodeId: string) => {
         const newExpanded = new Set(expandedNodes);
@@ -114,7 +171,16 @@ export function VariableSelector({
     };
 
     const handleSelectVariable = (variable: VariableType) => {
-        const ref = formatVariableReference(variable.nodeId, variable.variableKey);
+        // 特殊处理系统变量和会话变量的引用格式
+        let ref = "";
+        if (variable.nodeId === "sys") {
+            ref = `{{sys.${variable.variableKey}}}`.replace("sys.sys.", "sys."); // 防止重复前缀
+        } else if (variable.nodeId === "conversation") {
+            ref = `{{conversation.${variable.variableKey}}}`;
+        } else {
+            ref = formatVariableReference(variable.nodeId, variable.variableKey);
+        }
+
         onSelect(ref);
         setIsOpen(false);
         setSearchText("");

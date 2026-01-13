@@ -12,6 +12,7 @@ import { useState, useMemo } from "react";
 import { VariableModal } from "../modals/variable-modal";
 import { useWorkflowContext } from "@/context/workflow-context";
 import { getSystemVariables } from "../system-variables";
+import { ConversationVariablesEditor } from "../variable-selector";
 
 export function StartNodeConfig({
     selectedNode,
@@ -141,6 +142,17 @@ export function StartNodeConfig({
                     ))}
                 </div>
             </div>
+
+            {/* 会话变量编辑器 (Chatflow 专属) */}
+            {isChatflow && (
+                <>
+                    <div className="h-px bg-divider my-1" />
+                    <ConversationVariablesEditor
+                        variables={selectedNode.data?.conversation_variables || []}
+                        onChange={(vars) => updateSelectedNode({ conversation_variables: vars })}
+                    />
+                </>
+            )}
         </section>
     );
 }
